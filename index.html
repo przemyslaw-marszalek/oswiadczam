@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Oświadczenie powypadkowe – PoC</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+      .photo-item {
+        display: flex !important;
+        align-items: center !important;
+        padding: 12px !important;
+        margin: 8px 0 !important;
+        background-color: #f8f9fa !important;
+        border: 1px solid #e9ecef !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+      }
+      
+      .photo-icon {
+        font-size: 12px !important;
+        margin-right: 6px !important;
+        flex-shrink: 0 !important;
+        width: 16px !important;
+        height: 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background-color: #f0f0f0 !important;
+        border-radius: 2px !important;
+        border: 1px solid #ddd !important;
+      }
+      
+      .photo-info {
+        flex: 1 !important;
+        margin-right: 12px !important;
+      }
+      
+      .photo-name {
+        font-weight: 500 !important;
+        color: #333 !important;
+        margin-bottom: 4px !important;
+        word-break: break-all !important;
+      }
+      
+      .photo-size {
+        font-size: 12px !important;
+        color: #666 !important;
+      }
+      
+           .photo-preview-container {
+             position: relative !important;
+             flex-shrink: 0 !important;
+           }
+           
+           .photo-preview {
+             width: 60px !important;
+             height: 60px !important;
+             object-fit: cover !important;
+             border-radius: 4px !important;
+             border: 1px solid #ddd !important;
+             flex-shrink: 0 !important;
+           }
+           
+           .photo-delete-btn {
+             position: absolute !important;
+             top: -8px !important;
+             right: -8px !important;
+             width: 20px !important;
+             height: 20px !important;
+             border-radius: 50% !important;
+             background-color: #ff4444 !important;
+             color: white !important;
+             border: none !important;
+             font-size: 14px !important;
+             font-weight: bold !important;
+             cursor: pointer !important;
+             display: flex !important;
+             align-items: center !important;
+             justify-content: center !important;
+             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+             transition: background-color 0.2s !important;
+           }
+           
+           .photo-delete-btn:hover {
+             background-color: #cc0000 !important;
+           }
+      
+      .no-photos {
+        text-align: center !important;
+        color: #666 !important;
+        font-style: italic !important;
+        padding: 20px !important;
+        background-color: #f8f9fa !important;
+        border-radius: 8px !important;
+        border: 2px dashed #dee2e6 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Baner reklamowy -->
+    <div class="ad-banner">
+      <div class="ad-content">
+        <span class="ad-label">REKLAMA</span>
+        <div class="ad-text">
+          <strong>Likwidacja szkód samochodowych - Szybko i profesjonalnie!</strong> 
+          Bezpłatna wycena, naprawa w autoryzowanym serwisie, zastępczy samochód. 
+          <a href="#" class="ad-link">Zgłoś szkodę →</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div id="speechBanner" class="speech-banner hidden" role="status" aria-live="assertive">
+        <span class="dot" aria-hidden="true"></span>
+        <div class="speech-texts">
+          <div>System nagrywa i przyjmuje oświadczenie głosowe. Mów wyraźnie...</div>
+          <div id="speechLiveText" class="live-text"></div>
+        </div>
+      </div>
+      <div id="aiStatus" class="ai-status hidden" role="status" aria-live="polite"></div>
+      <h1 class="main-title">Oświadczam.to</h1>
+      
+      <!-- Wybór trybu wypełniania -->
+      <div class="mode-selection">
+        <button type="button" id="wizardBtn" class="mode-btn wizard-btn">
+          <span class="mode-icon">🤖</span>
+          <span class="mode-title">Wizard AI</span>
+          <span class="mode-desc">Automatyczne wypełnianie z AI</span>
+        </button>
+        <button type="button" id="manualBtn" class="mode-btn manual-btn active">
+          <span class="mode-icon">✏️</span>
+          <span class="mode-title">Ręczne wypełnienie</span>
+          <span class="mode-desc">Tradycyjny formularz</span>
+        </button>
+      </div>
+      
+      <!-- Wizard AI -->
+      <div id="wizardSection" class="wizard-section hidden">
+        <div class="wizard-container">
+          <div class="wizard-header">
+            <h2>🤖 Wizard AI - Automatyczne wypełnianie oświadczenia</h2>
+            <p>Wizard poprowadzi Cię przez proces zbierania danych i automatycznie wypełni formularz</p>
+          </div>
+          
+          <div class="wizard-progress">
+            <div class="progress-bar">
+              <div id="wizardProgress" class="progress-fill"></div>
+            </div>
+            <div class="progress-text">
+              <span id="wizardStepText">Krok 1 z 7</span>
+            </div>
+          </div>
+          
+          <div class="wizard-content">
+            <!-- Krok 1: Prawo jazdy sprawcy - przód i tył -->
+            <div id="wizardStep1" class="wizard-step active">
+              <h3>📄 Prawo jazdy sprawcy</h3>
+              <p>Zdjęcia przedniej i tylnej strony prawa jazdy sprawcy</p>
+              <div class="photo-upload-area" id="licenseAUpload">
+                <input type="file" id="licenseAFile" accept="image/*" capture="environment" multiple>
+                <div class="upload-placeholder">
+                  <span class="upload-icon">📷</span>
+                  <span class="upload-text">Kliknij aby zrobić zdjęcia (przód i tył prawa jazdy)</span>
+                </div>
+                <div id="licenseAPreviews" class="upload-previews"></div>
+              </div>
+            </div>
+
+            <!-- Krok 2: Prawo jazdy poszkodowanego - przód i tył -->
+            <div id="wizardStep2" class="wizard-step">
+              <h3>📄 Prawo jazdy poszkodowanego</h3>
+              <p>Zdjęcia przedniej i tylnej strony prawa jazdy poszkodowanego</p>
+              <div class="photo-upload-area" id="licenseBUpload">
+                <input type="file" id="licenseBFile" accept="image/*" capture="environment" multiple>
+                <div class="upload-placeholder">
+                  <span class="upload-icon">📷</span>
+                  <span class="upload-text">Kliknij aby zrobić zdjęcia (przód i tył prawa jazdy)</span>
+                </div>
+                <div id="licenseBPreviews" class="upload-previews"></div>
+              </div>
+            </div>
+
+            <!-- Krok 3: Pojazd sprawcy - przód i tył -->
+            <div id="wizardStep3" class="wizard-step">
+              <h3>🚗 Pojazd sprawcy</h3>
+              <p>Zdjęcia pojazdu sprawcy z przodu i z tyłu z widocznymi tablicami rejestracyjnymi</p>
+              <div class="photo-upload-area" id="vehicleAUpload">
+                <input type="file" id="vehicleAFile" accept="image/*" capture="environment" multiple>
+                <div class="upload-placeholder">
+                  <span class="upload-icon">📷</span>
+                  <span class="upload-text">Kliknij aby zrobić zdjęcia (przód i tył z tablicami)</span>
+                </div>
+                <div id="vehicleAPreviews" class="upload-previews"></div>
+              </div>
+            </div>
+
+            <!-- Krok 4: Pojazd poszkodowanego - przód i tył -->
+            <div id="wizardStep4" class="wizard-step">
+              <h3>🚗 Pojazd poszkodowanego</h3>
+              <p>Zdjęcia pojazdu poszkodowanego z przodu i z tyłu z widocznymi tablicami rejestracyjnymi</p>
+              <div class="photo-upload-area" id="vehicleBUpload">
+                <input type="file" id="vehicleBFile" accept="image/*" capture="environment" multiple>
+                <div class="upload-placeholder">
+                  <span class="upload-icon">📷</span>
+                  <span class="upload-text">Kliknij aby zrobić zdjęcia (przód i tył z tablicami)</span>
+                </div>
+                <div id="vehicleBPreviews" class="upload-previews"></div>
+              </div>
+            </div>
+
+            <!-- Krok 5: Uszkodzenia pojazdu poszkodowanego -->
+            <div id="wizardStep5" class="wizard-step">
+              <h3>🔧 Uszkodzenia pojazdu poszkodowanego</h3>
+              <p>Zdjęcia uszkodzonych elementów pojazdu poszkodowanego (max. 5 zdjęć)</p>
+              <div class="photo-upload-area" id="damageBUpload">
+                <input type="file" id="damageBFile" accept="image/*" capture="environment" multiple>
+                <div class="upload-placeholder">
+                  <span class="upload-icon">📷</span>
+                  <span class="upload-text">Kliknij aby zrobić zdjęcia uszkodzeń (max. 5)</span>
+                </div>
+                <div id="damageBPreviews" class="upload-previews"></div>
+              </div>
+            </div>
+
+            <!-- Krok 6: Uszkodzenia pojazdu sprawcy -->
+            <div id="wizardStep6" class="wizard-step">
+              <h3>🔧 Uszkodzenia pojazdu sprawcy</h3>
+              <p>Zdjęcia uszkodzonych elementów pojazdu sprawcy (max. 5 zdjęć)</p>
+              <div class="photo-upload-area" id="damageAUpload">
+                <input type="file" id="damageAFile" accept="image/*" capture="environment" multiple>
+                <div class="upload-placeholder">
+                  <span class="upload-icon">📷</span>
+                  <span class="upload-text">Kliknij aby zrobić zdjęcia uszkodzeń (max. 5)</span>
+                </div>
+                <div id="damageAPreviews" class="upload-previews"></div>
+              </div>
+            </div>
+
+            <!-- Krok 7: Lokalizacja i szczegóły -->
+            <div id="wizardStep7" class="wizard-step">
+              <h3>📍 Lokalizacja i szczegóły zdarzenia</h3>
+              <div class="wizard-form">
+                <label>Lokalizacja zdarzenia
+                  <input type="text" id="wizardLocation" placeholder="np. ul. Krakowska 15, Kraków">
+                  <button type="button" id="wizardGpsBtn" class="gps-btn">📍 Pobierz z GPS</button>
+                </label>
+                
+                <label>Data i godzina zdarzenia
+                  <input type="datetime-local" id="wizardDateTime">
+                </label>
+                
+                <label>Szczegóły zdarzenia
+                  <textarea id="wizardDetails" placeholder="Opisz co się stało..."></textarea>
+                  <button type="button" id="wizardMicBtn" class="mic-btn">🎤 Nagraj opis</button>
+                </label>
+                
+                <label>E-mail sprawcy (opcjonalnie)
+                  <input type="email" id="wizardDriverAEmail" placeholder="np. jan.kowalski@email.com">
+                </label>
+                
+                <label>E-mail poszkodowanego (opcjonalnie)
+                  <input type="email" id="wizardDriverBEmail" placeholder="np. anna.nowak@email.com">
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="wizard-actions">
+            <button type="button" id="wizardPrevBtn" class="wizard-btn prev-btn" disabled>← Poprzedni</button>
+            <button type="button" id="wizardNextBtn" class="wizard-btn next-btn">Następny →</button>
+            <button type="button" id="wizardFinishBtn" class="wizard-btn finish-btn hidden">✅ Zakończ i wypełnij formularz</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="grid-three">
+        <form id="statementForm" class="card">
+          <h2>Dane sprawcy kolizji</h2>
+          <label>Imię i nazwisko sprawcy
+            <input type="text" id="driverAName" placeholder="np. Anna Nowak" required>
+          </label>
+          <label>Adres zamieszkania sprawcy
+            <input type="text" id="driverAAddress" placeholder="ulica, miasto">
+          </label>
+          <label>E-mail sprawcy
+            <input type="email" id="driverAEmail" placeholder="np. anna@example.com">
+          </label>
+          <label>Prawo jazdy sprawcy (kategoria)
+            <input type="text" id="driverALicenseCategory" placeholder="np. B">
+          </label>
+          <label>Prawo jazdy sprawcy (seria i nr)
+            <input type="text" id="driverALicenseNumber" placeholder="np. ABC123456">
+          </label>
+          <label>Prawo jazdy wydane przez
+            <input type="text" id="driverALicenseIssuer" placeholder="np. Starostwo Powiatowe">
+          </label>
+          <label>Marka pojazdu sprawcy
+            <input type="text" id="vehicleAMake" placeholder="np. Toyota">
+          </label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="vehicleAOtherOwner">
+              <span class="checkmark"></span>
+              Inny właściciel pojazdu sprawcy
+            </label>
+          </div>
+          <label class="vehicle-owner-field hidden" id="vehicleAOwnerLabel">Właściciel pojazdu sprawcy
+            <input type="text" id="vehicleAOwner" placeholder="np. Jan Kowalski">
+          </label>
+          <label>Numer rejestracyjny pojazdu sprawcy
+            <div class="input-with-button">
+              <input type="text" id="vehicleAPlate" placeholder="np. KR 12345" required>
+              <button type="button" id="verifyPolicyBtn" class="verify-btn">Sprawdź polisę</button>
+            </div>
+            <div id="policyStatus" class="policy-status hidden"></div>
+          </label>
+          <label>Polisa OC sprawcy (ubezpieczyciel, nr)
+            <input type="text" id="driverAPolicyInfo" placeholder="">
+          </label>
+          <label>Polisa ważna do
+            <input type="date" id="driverAPolicyValidUntil" placeholder="">
+          </label>
+        </form>
+
+        <form class="card">
+          <h2>Dane poszkodowanego</h2>
+          <label>Imię i nazwisko poszkodowanego
+            <input type="text" id="driverBName" placeholder="">
+          </label>
+          <label>Adres zamieszkania poszkodowanego
+            <input type="text" id="driverBAddress" placeholder="ulica, miasto">
+          </label>
+          <label>E-mail poszkodowanego
+            <input type="email" id="driverBEmail" placeholder="">
+          </label>
+          <label>Prawo jazdy poszkodowanego (kategoria)
+            <input type="text" id="driverBLicenseCategory" placeholder="np. B">
+          </label>
+          <label>Prawo jazdy poszkodowanego (seria i nr)
+            <input type="text" id="driverBLicenseNumber" placeholder="np. ABC123456">
+          </label>
+          <label>Prawo jazdy wydane przez
+            <input type="text" id="driverBLicenseIssuer" placeholder="np. Starostwo Powiatowe">
+          </label>
+          <label>Marka pojazdu poszkodowanego
+            <input type="text" id="vehicleBMake" placeholder="np. Toyota">
+          </label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="vehicleBOtherOwner">
+              <span class="checkmark"></span>
+              Inny właściciel pojazdu poszkodowanego
+            </label>
+          </div>
+          <label class="vehicle-owner-field hidden" id="vehicleBOwnerLabel">Właściciel pojazdu poszkodowanego
+            <input type="text" id="vehicleBOwner" placeholder="np. Jan Kowalski">
+          </label>
+          <label>Nr rejestracyjny pojazdu poszkodowanego
+            <div class="input-with-button">
+              <input type="text" id="vehicleBPlate" placeholder="">
+              <button type="button" id="verifyPolicyBBtn" class="verify-btn">Sprawdź polisę</button>
+            </div>
+            <div id="policyBStatus" class="policy-status hidden"></div>
+          </label>
+          <label>Polisa OC poszkodowanego (ubezpieczyciel, nr)
+            <input type="text" id="driverBPolicyInfo" placeholder="">
+          </label>
+          <label>Polisa ważna do
+            <input type="date" id="driverBPolicyValidUntil" placeholder="">
+          </label>
+        </form>
+
+        <form class="card">
+          <h2>Dane zdarzenia</h2>
+          <label>Miejsce zdarzenia
+            <div class="input-with-button">
+              <input type="text" id="location" placeholder="np. Kraków, ul. Długa 12" required>
+              <button type="button" id="getLocationBtn" class="location-btn">📍 Pobierz lokalizację</button>
+            </div>
+            <div id="locationStatus" class="location-status hidden"></div>
+          </label>
+          <label>Data i godzina
+            <input type="datetime-local" id="datetime" required>
+          </label>
+          <div class="dictation-section">
+            <button type="button" id="dictateBtn" class="dictate-main-btn">🎤 Opisz zdarzenie</button>
+            <div id="dictationText" class="dictation-text hidden">
+              <h3>Opis zdarzenia:</h3>
+              <div id="dictationContent" class="dictation-content"></div>
+              <div class="dictation-actions">
+                <button type="button" id="applyDictationBtn" class="apply-btn">Zastosuj do formularza</button>
+                <button type="button" id="clearDictationBtn" class="clear-btn">Wyczyść</button>
+              </div>
+            </div>
+          </div>
+          <label>Szczegóły zdarzenia
+            <textarea id="incidentDetails" rows="4" placeholder=""></textarea>
+          </label>
+                  <label>Opis uszkodzeń pojazdu poszkodowanego
+                    <textarea id="damageDescriptionVictim" rows="3" placeholder=""></textarea>
+                  </label>
+                  <label>Zdjęcia uszkodzeń pojazdu poszkodowanego (max. 5 zdjęć)
+                    <input type="file" id="victimPhotos" accept="image/*" multiple>
+                    <div class="photo-info">Możesz wybrać maksymalnie 5 zdjęć</div>
+                    <div id="victimPhotosPreviews" class="upload-previews"></div>
+                  </label>
+                  <label>Opis uszkodzeń pojazdu sprawcy
+                    <textarea id="damageDescriptionPerpetrator" rows="3" placeholder=""></textarea>
+                  </label>
+                  <label>Zdjęcia uszkodzeń pojazdu sprawcy (max. 5 zdjęć)
+                    <input type="file" id="perpetratorPhotos" accept="image/*" multiple>
+                    <div class="photo-info">Możesz wybrać maksymalnie 5 zdjęć</div>
+                    <div id="perpetratorPhotosPreviews" class="upload-previews"></div>
+                  </label>
+          <label>Inne uszkodzenia/informacje
+            <textarea id="additionalInfo" rows="2" placeholder=""></textarea>
+          </label>
+        </form>
+      </div>
+
+      <!-- Sekcja podpisów -->
+      <div class="card signatures-section">
+        <h2>Podpisy elektroniczne</h2>
+        
+        <div class="signature-container">
+          <div class="signature-box">
+            <h3>Podpis sprawcy kolizji</h3>
+            <canvas id="driverASignature" width="400" height="150" class="signature-canvas"></canvas>
+            <div class="signature-actions">
+              <button type="button" id="clearDriverASignature" class="clear-signature-btn">Wyczyść podpis</button>
+              <span id="driverASignatureStatus" class="signature-status">Nie podpisano</span>
+            </div>
+          </div>
+          
+          <div class="signature-box">
+            <h3>Podpis poszkodowanego</h3>
+            <canvas id="driverBSignature" width="400" height="150" class="signature-canvas"></canvas>
+            <div class="signature-actions">
+              <button type="button" id="clearDriverBSignature" class="clear-signature-btn">Wyczyść podpis</button>
+              <span id="driverBSignatureStatus" class="signature-status">Nie podpisano</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="signature-info">
+          <p><strong>Instrukcje:</strong></p>
+          <ul>
+            <li>Kliknij i przeciągnij myszką/palcem po obszarze podpisu</li>
+            <li>Podpis jest wymagany przed wysłaniem oświadczenia</li>
+            <li>Możesz wyczyścić podpis i podpisać ponownie</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Podgląd oświadczenia -->
+      <div class="card" id="previewCard">
+        <h2>Podgląd oświadczenia</h2>
+        <pre id="preview"></pre>
+      </div>
+
+      <div class="actions-section">
+        <div class="approval-section">
+          <button type="button" id="approveBtn" class="approve-btn">✓ Zatwierdź oświadczenie</button>
+          <div id="approvalStatus" class="approval-status hidden">
+            <span class="approval-icon">✓</span>
+            <span class="approval-text">Oświadczenie zatwierdzone</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" id="emailBtn" class="action-btn disabled" disabled>Wyślij na e-mail</button>
+          <button type="button" id="downloadBtn" class="action-btn disabled" disabled>Pobierz oświadczenie</button>
+        </div>
+      </div>
+
+      <!-- Modal QR -->
+      <div id="qrModal" class="modal hidden">
+        <div class="modal-content">
+          <h3>Zeskanuj QR mObywatel</h3>
+          <p>W PoC możesz wpisać token JSON albo użyć kamery (symulacja poniżej).</p>
+          <textarea id="qrTokenInput" rows="6" placeholder='{"driverB":{"name":"Jan Kowalski","policyNumber":"POL-PL-123456","vehiclePlate":"WX 12345"}}'></textarea>
+          <div class="modal-actions">
+            <button id="qrSubmit">Użyj tokenu</button>
+            <button id="qrClose">Zamknij</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal ręcznego wklejenia/napisania oświadczenia (fallback zamiast Web Speech API) -->
+      <div id="manualModal" class="modal hidden">
+        <div class="modal-content">
+          <h3>Wpisz lub wklej treść oświadczenia</h3>
+          <p>Na tym urządzeniu rozpoznawanie mowy w przeglądarce nie jest wspierane. Możesz użyć mikrofonu klawiatury telefonu i wkleić tekst poniżej.</p>
+          <textarea id="manualText" rows="8" placeholder="Opisz zdarzenie, podaj dane A/B, numery rejestracyjne, miejsce, datę..."></textarea>
+          <div class="modal-actions">
+            <button id="manualAnalyze">Wyślij do AI</button>
+            <button id="manualClose">Zamknij</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal nagrywania audio (Mobile iOS/Android) -->
+      <div id="recordModal" class="modal hidden">
+        <div class="modal-content">
+          <h3>Nagraj oświadczenie (audio)</h3>
+          <p>Wciśnij „Start”, a po zakończeniu „Stop”, następnie „Wyślij do AI”.</p>
+          <div class="actions">
+            <button id="recStart">Start</button>
+            <button id="recStop" disabled>Stop</button>
+            <button id="recSend" disabled>Wyślij do AI</button>
+            <button id="recClose">Zamknij</button>
+          </div>
+          <audio id="recPreview" controls class="hidden"></audio>
+        </div>
+      </div>
+    </div>
+
+    <!-- jsPDF for PDF export -->
+    <script src="/node_modules/jspdf/dist/jspdf.umd.min.js"></script>
+    <script src="/main.js"></script>
+  </body>
+  </html>
+
+

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin – Oświadczenia</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+      .admin-container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+      table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+      th, td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 14px; }
+      th { background: #f3f4f6; font-weight: 600; }
+      tr:last-child td { border-bottom: none; }
+      .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+      .pill { padding: 6px 10px; background: #111827; color: #fff; border-radius: 999px; font-size: 12px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .empty { padding: 16px; background: #fff; border: 1px dashed #e5e7eb; border-radius: 8px; }
+      .photo-gallery { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+      .photo-item { width: 60px; height: 60px; border-radius: 4px; object-fit: cover; border: 1px solid #e5e7eb; cursor: pointer; }
+      .photo-item:hover { border-color: #3b82f6; }
+      .signature-preview { width: 80px; height: 30px; border: 1px solid #e5e7eb; border-radius: 4px; cursor: pointer; }
+      .signature-preview:hover { border-color: #3b82f6; }
+      .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+      .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 90%; max-height: 90%; }
+      .modal img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+      .modal-close { position: absolute; top: 10px; right: 20px; color: white; font-size: 30px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="admin-container">
+      <div class="toolbar">
+        <a href="/" class="pill">← Powrót do aplikacji</a>
+        <div id="count" class="pill">0 zapisanych</div>
+        <button id="refreshBtn">Odśwież</button>
+      </div>
+      <h1>Panel administracyjny – zapisane oświadczenia</h1>
+      <div id="content"></div>
+      <div id="adminError" class="empty" style="display:none;color:#7f1d1d;background:#fee2e2;border-color:#fecaca;">Błąd pobierania danych.</div>
+    </div>
+
+    <!-- Modal do wyświetlania zdjęć -->
+    <div id="imageModal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close">&times;</span>
+        <img id="modalImage" src="" alt="">
+      </div>
+    </div>
+
+    <script>
+      async function fetchStatements() {
+        try {
+          const resp = await fetch('/api/statement', { cache: 'no-store' });
+          const data = await resp.json();
+          if (!data.ok) throw new Error('API error');
+          return data.items || [];
+        } catch (e) {
+          console.error('Failed to fetch statements', e);
+          return [];
+        }
+      }
+
+      function renderTable(items) {
+        const content = document.getElementById('content');
+        const count = document.getElementById('count');
+        count.textContent = `${items.length} zapisanych`;
+        if (!items.length) {
+          content.innerHTML = `<div class="empty">Brak zapisanych oświadczeń.</div>`;
+          return;
+        }
+        const rows = items.map((it) => {
+          const when = new Date(it.createdAt || Date.now()).toLocaleString();
+          const a = `${it.driverAName || ''} / ${it.vehicleAPlate || ''}`;
+          const b = `${it.driverBName || ''} / ${it.vehicleBPlate || ''}`;
+          const loc = it.location || '';
+          const id = it.id || '';
+          const pdfUrl = `/api/statement/${id}/pdf`;
+          
+          // Zdjęcia sprawcy
+          const victimPhotos = it.victimPhotosDataUrl || [];
+          const perpetratorPhotos = it.perpetratorPhotosDataUrl || [];
+          
+          // Podpisy
+          const driverASignature = it.driverASignature || '';
+          const driverBSignature = it.driverBSignature || '';
+          
+          const photosHtml = `
+            <div style="margin-bottom: 8px;">
+              <strong>Poszkodowany:</strong>
+              <div class="photo-gallery">
+                ${victimPhotos.map(photo => `<img src="${photo.dataUrl}" alt="Zdjęcie" class="photo-item" onclick="showImage('${photo.dataUrl}')">`).join('')}
+                ${victimPhotos.length === 0 ? '<span style="color: #6b7280; font-size: 12px;">Brak zdjęć</span>' : ''}
+              </div>
+            </div>
+            <div>
+              <strong>Sprawca:</strong>
+              <div class="photo-gallery">
+                ${perpetratorPhotos.map(photo => `<img src="${photo.dataUrl}" alt="Zdjęcie" class="photo-item" onclick="showImage('${photo.dataUrl}')">`).join('')}
+                ${perpetratorPhotos.length === 0 ? '<span style="color: #6b7280; font-size: 12px;">Brak zdjęć</span>' : ''}
+              </div>
+            </div>
+          `;
+          
+          const signaturesHtml = `
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <div>
+                <strong>Sprawca:</strong><br>
+                ${driverASignature ? `<img src="${driverASignature}" alt="Podpis sprawcy" class="signature-preview" onclick="showImage('${driverASignature}')">` : '<span style="color: #6b7280; font-size: 12px;">Brak podpisu</span>'}
+              </div>
+              <div>
+                <strong>Poszkodowany:</strong><br>
+                ${driverBSignature ? `<img src="${driverBSignature}" alt="Podpis poszkodowanego" class="signature-preview" onclick="showImage('${driverBSignature}')">` : '<span style="color: #6b7280; font-size: 12px;">Brak podpisu</span>'}
+              </div>
+            </div>
+          `;
+          
+          return `<tr>
+            <td class="mono">${when}</td>
+            <td>${a}</td>
+            <td>${b}</td>
+            <td>${loc}</td>
+            <td class="mono">${id}<br><a href="${pdfUrl}" target="_blank">PDF</a></td>
+            <td style="max-width: 200px;">${photosHtml}</td>
+            <td style="max-width: 150px;">${signaturesHtml}</td>
+          </tr>`;
+        }).join('');
+
+        content.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Data zapisu</th>
+                <th>Sprawca</th>
+                <th>Poszkodowany</th>
+                <th>Miejsce</th>
+                <th>ID / PDF</th>
+                <th>Zdjęcia</th>
+                <th>Podpisy</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        `;
+      }
+
+      // Funkcja do wyświetlania zdjęć w modalu
+      function showImage(imageSrc) {
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        modalImg.src = imageSrc;
+        modal.style.display = 'block';
+      }
+
+      // Zamknij modal
+      document.addEventListener('click', function(e) {
+        const modal = document.getElementById('imageModal');
+        const closeBtn = document.querySelector('.modal-close');
+        if (e.target === modal || e.target === closeBtn) {
+          modal.style.display = 'none';
+        }
+      });
+
+      (async function init(){
+        await refresh();
+        // Prosty auto-refresh co 10s
+        setInterval(refresh, 10000);
+        document.getElementById('refreshBtn').addEventListener('click', refresh);
+      })();
+
+      async function refresh(){
+        const err = document.getElementById('adminError');
+        err.style.display = 'none';
+        const items = await fetchStatements();
+        renderTable(items);
+        if (!items) err.style.display = 'block';
+      }
+    </script>
+  </body>
+  </html>
+
+
