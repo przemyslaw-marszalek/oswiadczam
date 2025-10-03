@@ -1477,12 +1477,7 @@ function initializeWizardPhotoUploads() {
     // Przełącz z powrotem na tryb ręczny
     manualBtn.click();
     
-    // Pokaż komunikat o sukcesie z informacją o pustych polach
-    if (emptyFieldsCount > 0) {
-      alert(`Wizard zakończony! Formularz został automatycznie wypełniony na podstawie analizy AI.\n\n🟡 Uwaga: ${emptyFieldsCount} pól wymaga ręcznego uzupełnienia (zaznaczone na żółto).`);
-    } else {
-      alert('Wizard zakończony! Formularz został w pełni automatycznie wypełniony na podstawie analizy AI.');
-    }
+    // Wizard zakończony - bez komunikatów
     
     // Oznacz wizard jako zakończony
     wizardCompleted = true;
@@ -3347,8 +3342,8 @@ function transferDamagePhotosFromWizard(analysisResults) {
       const saveData = await saveResp.json();
       
       if (saveData.ok) {
-        // Następnie pobierz PDF
-        const pdfUrl = `/api/statement/${saveData.id}/pdf`;
+        // Następnie pobierz PDF (użyj endpointu bez autoryzacji admin)
+        const pdfUrl = `/api/download/${saveData.id}/pdf`;
         window.open(pdfUrl, '_blank');
       } else {
         alert('Błąd zapisu oświadczenia: ' + (saveData.error || 'Nieznany błąd'));

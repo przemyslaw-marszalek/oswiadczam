@@ -68,11 +68,20 @@ app.get('/healthcheck', (req, res) => {
 // Email configuration (PoC - użyj własnych ustawień SMTP)
 const emailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false, // true for 465, false for other ports
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER || 'your-email@gmail.com',
     pass: process.env.SMTP_PASS || 'your-app-password'
+  },
+  // Dodatkowe opcje dla Railway
+  connectionTimeout: 60000, // 60 sekund
+  greetingTimeout: 30000,   // 30 sekund
+  socketTimeout: 60000,      // 60 sekund
+  // Próbuj różne opcje TLS
+  tls: {
+    rejectUnauthorized: false,
+    ciphers: 'SSLv3'
   }
 });
 
@@ -292,13 +301,60 @@ app.post('/api/statement/email', async (req, res) => {
       attachments: attachments
     };
 
+    console.log(`📧 Próba wysłania e-maila do: ${emailAddresses.join(', ')}`);
+    console.log(`📧 SMTP Host: ${process.env.SMTP_HOST || 'smtp.gmail.com'}`);
+    console.log(`📧 SMTP Port: ${process.env.SMTP_PORT || 587}`);
+    
     await emailTransporter.sendMail(mailOptions);
+    console.log(`✅ E-mail wysłany do: ${emailAddresses.join(', ')}`);
     res.json({ ok: true, id, message: 'E-mail został wysłany pomyślnie' });
   } catch (emailError) {
-    console.error('Email sending error:', emailError);
+    console.error('❌ Błąd wysyłania e-maila:', emailError);
+    console.error('❌ Error code:', emailError.code);
+    console.error('❌ Error command:', emailError.command);
+    
+    // Sprawdź czy to problem z Railway/Gmail
+    if (emailError.code === 'ECONNREFUSED' || emailError.code === 'ETIMEDOUT' || emailError.message.includes('timeout')) {
+      res.status(500).json({ 
+        error: 'Problem z połączeniem SMTP na Railway', 
+        details: 'Gmail SMTP może być zablokowany na Railway. Spróbuj alternatywnych dostawców SMTP.',
+        suggestions: [
+          'Użyj SendGrid (darmowy do 100 e-maili/dzień)',
+          'Użyj Mailgun (darmowy do 10,000 e-maili/miesiąc)', 
+          'Użyj Resend (darmowy do 3,000 e-maili/miesiąc)',
+          'Sprawdź czy Railway ma ograniczenia portów outbound'
+        ]
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Błąd wysyłania e-maila: ' + emailError.message,
+        details: emailError.response || 'Sprawdź konfigurację SMTP w pliku .env'
+      });
+    }
+  }
+});
+
+// Generowanie PDF dla użytkownika (bez autoryzacji admin)
+app.get('/api/download/:id/pdf', async (req, res) => {
+  const { id } = req.params;
+  const item = memoryStore.statements.find((s) => s.id === id);
+  if (!item) return res.status(404).send('Not found');
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="oswiadczenie_${id}.pdf"`);
+
+  try {
+    console.log(`[PDF] Generating PDF for statement ${id} (user download)`);
+    const pdfBuffer = await generatePDFBuffer(item);
+    console.log(`[PDF] PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('[PDF] PDF generation error:', error);
+    console.error('[PDF] Error stack:', error.stack);
     res.status(500).json({ 
-      error: 'Błąd wysyłania e-maila: ' + emailError.message,
-      details: emailError.response || 'Sprawdź konfigurację SMTP w pliku .env'
+      error: 'PDF generation failed', 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
