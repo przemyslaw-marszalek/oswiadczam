@@ -759,6 +759,15 @@ input[type="file"]::-webkit-file-upload-button {
   background: #059669;
 }
 
+.skip-btn {
+  background: #f59e0b;
+  color: white;
+}
+
+.skip-btn:hover {
+  background: #d97706;
+}
+
 /* Responsywność */
 @media (max-width: 768px) {
   .mode-selection {

@@ -51,7 +51,7 @@ app.use((req, res, next) => {
     return next();
   }
   // Pomiń auth dla wszystkich innych ścieżek oprócz strony głównej
-  if (req.path !== '/') {
+  if (req.path !== '/' && req.path !== '/index.html') {
     return next();
   }
   return basicAuth(req, res, next);

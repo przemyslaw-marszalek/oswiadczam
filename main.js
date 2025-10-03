@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const wizardPrevBtn = $('wizardPrevBtn');
   const wizardNextBtn = $('wizardNextBtn');
   const wizardFinishBtn = $('wizardFinishBtn');
+  const wizardSkipBtn = $('wizardSkipBtn');
   
   // Flaga zatwierdzenia
   let isApproved = false;
@@ -701,7 +702,21 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!validateAllStepsPhotos()) {
         return; // Zatrzymaj jeśli walidacja nie przeszła
       }
+      
+      // Analizuj ostatni krok (lokalizacja i szczegóły) przed zakończeniem
+      console.log('🚨 WIZARD: Calling analyzeCurrentStep before finishing wizard');
+      analyzeCurrentStep();
+      
       finishWizard();
+    });
+    
+    wizardSkipBtn.addEventListener('click', () => {
+      console.log('🚨 WIZARD: Skip button clicked, current step:', currentWizardStep);
+      if (currentWizardStep < totalWizardSteps && !wizardCompleted) {
+        // Przejdź do następnego kroku bez walidacji
+        currentWizardStep++;
+        updateWizardStep();
+      }
     });
     
     // Ustaw domyślną datę i godzinę
@@ -742,9 +757,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (currentWizardStep === totalWizardSteps) {
       wizardNextBtn.classList.add('hidden');
+      wizardSkipBtn.classList.add('hidden'); // Ukryj przycisk "Pomiń" na ostatnim kroku
       wizardFinishBtn.classList.remove('hidden');
     } else {
       wizardNextBtn.classList.remove('hidden');
+      wizardSkipBtn.classList.remove('hidden'); // Pokaż przycisk "Pomiń" na wszystkich innych krokach
       wizardFinishBtn.classList.add('hidden');
     }
   }
@@ -1350,8 +1367,12 @@ function initializeWizardPhotoUploads() {
       
       // Aktualizuj tekst przycisku z liczbą pozostałych analiz
       const finishBtn = $('wizardFinishBtn');
+      const skipBtn = $('wizardSkipBtn');
       if (finishBtn) {
         finishBtn.textContent = `⏳ Czekam na zakończenie ${activeAnalyses.size} analiz AI...`;
+      }
+      if (skipBtn) {
+        skipBtn.disabled = true;
       }
       
       await new Promise(resolve => setTimeout(resolve, 500)); // Sprawdź co 500ms
@@ -1416,10 +1437,14 @@ function initializeWizardPhotoUploads() {
     // Zablokuj wszystkie przyciski wizarda
     wizardPrevBtn.disabled = true;
     wizardNextBtn.disabled = true;
+    wizardSkipBtn.disabled = true;
     wizardFinishBtn.disabled = true;
     
     // Zaktualizuj stan przycisków
     updateWizardStep();
+    
+    // Ukryj przycisk "Pomiń" po zakończeniu wizarda
+    wizardSkipBtn.classList.add('hidden');
     
     // Zaktualizuj podgląd oświadczenia
     updatePreview();
@@ -2167,14 +2192,18 @@ function transferDamagePhotosFromWizard(analysisResults) {
 }
   function showWizardLoading() {
     const finishBtn = $('wizardFinishBtn');
+    const skipBtn = $('wizardSkipBtn');
     finishBtn.textContent = '⏳ Czekam na zakończenie analiz AI...';
     finishBtn.disabled = true;
+    skipBtn.disabled = true;
   }
   
   function hideWizardLoading() {
     const finishBtn = $('wizardFinishBtn');
+    const skipBtn = $('wizardSkipBtn');
     finishBtn.textContent = '✅ Zakończ i wypełnij formularz';
     finishBtn.disabled = false;
+    skipBtn.disabled = false;
   }
   
   // Funkcja inicjalizacji przełączników właścicieli
