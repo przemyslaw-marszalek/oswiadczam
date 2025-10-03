@@ -1172,11 +1172,13 @@ function initializeWizardPhotoUploads() {
     const micBtn = $('wizardMicBtn');
     const detailsTextarea = $('wizardDetails');
     let recognition = null;
+    let accumulatedTranscript = '';
+    let isListening = false;
     
     if (micBtn && detailsTextarea) {
       micBtn.addEventListener('click', () => {
         // Jeśli już nagrywamy, zatrzymaj nagrywanie
-        if (recognition && micBtn.textContent.includes('Zatrzymaj')) {
+        if (isListening && recognition) {
           recognition.stop();
           return;
         }
@@ -1186,34 +1188,54 @@ function initializeWizardPhotoUploads() {
           recognition = new SpeechRecognition();
           
           recognition.lang = 'pl-PL';
-          recognition.continuous = false;
-          recognition.interimResults = false;
+          recognition.interimResults = true; // pokazuj tekst na żywo
+          recognition.continuous = true; // nasłuchuj ciągle
+          recognition.maxAlternatives = 1;
           
-          micBtn.textContent = '🎤 Nagrywanie...';
-          micBtn.disabled = true;
+          accumulatedTranscript = '';
+          isListening = true;
+          
+          micBtn.textContent = '⏹️ Zatrzymaj nagrywanie';
+          micBtn.disabled = false;
           
           recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            detailsTextarea.value = transcript;
+            let interimText = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              const res = event.results[i];
+              if (res.isFinal) {
+                accumulatedTranscript += res[0].transcript + ' ';
+              } else {
+                interimText += res[0].transcript + ' ';
+              }
+            }
             
-            micBtn.textContent = '🎤 Nagraj opis';
-            micBtn.disabled = false;
+            // Pokaż tekst na żywo w textarea
+            const liveText = (accumulatedTranscript + ' ' + interimText).trim();
+            detailsTextarea.value = liveText;
           };
           
           recognition.onerror = (event) => {
             alert('Błąd rozpoznawania mowy: ' + event.error);
             micBtn.textContent = '🎤 Nagraj opis';
             micBtn.disabled = false;
+            isListening = false;
           };
           
           recognition.onend = () => {
             micBtn.textContent = '🎤 Nagraj opis';
             micBtn.disabled = false;
+            isListening = false;
+            
+            // Ustaw finalny tekst
+            if (accumulatedTranscript.trim()) {
+              detailsTextarea.value = accumulatedTranscript.trim();
+            }
           };
           
           recognition.onstart = () => {
             micBtn.textContent = '⏹️ Zatrzymaj nagrywanie';
             micBtn.disabled = false;
+            isListening = true;
           };
           
           recognition.start();
@@ -1741,11 +1763,27 @@ function transferDamagePhotosToField(fieldId, photos, prefix) {
         const driverAEmail = $('wizardDriverAEmail').value;
         const driverBEmail = $('wizardDriverBEmail').value;
         
-        if (location) await streamFillField('location', location);
-        if (datetime) await streamFillField('datetime', datetime);
-        if (details) await streamFillField('incidentDetails', details);
-        if (driverAEmail) await streamFillField('driverAEmail', driverAEmail);
-        if (driverBEmail) await streamFillField('driverBEmail', driverBEmail);
+        // Dla danych z wizarda używaj bezpośredniego wstawienia (bez streaming)
+        if (location) {
+          $('location').value = location;
+          console.log(`✅ Przeniesiono lokalizację z wizarda: "${location}"`);
+        }
+        if (datetime) {
+          $('datetime').value = datetime;
+          console.log(`✅ Przeniesiono datę z wizarda: "${datetime}"`);
+        }
+        if (details) {
+          $('incidentDetails').value = details;
+          console.log(`✅ Przeniesiono szczegóły z wizarda: "${details}"`);
+        }
+        if (driverAEmail) {
+          $('driverAEmail').value = driverAEmail;
+          console.log(`✅ Przeniesiono email sprawcy z wizarda: "${driverAEmail}"`);
+        }
+        if (driverBEmail) {
+          $('driverBEmail').value = driverBEmail;
+          console.log(`✅ Przeniesiono email poszkodowanego z wizarda: "${driverBEmail}"`);
+        }
         
         // Sprawdź stan przycisków po przeniesieniu e-maili z wizarda
         if (driverAEmail || driverBEmail) updateButtonStates();

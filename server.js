@@ -8,7 +8,6 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const fs = require('fs');
-const http = require('http');
 const multer = require('multer');
 const { spawn } = require('child_process');
 const PDFDocument = require('pdfkit');
@@ -413,78 +412,12 @@ app.post('/api/ai/analyze-image', async (req, res) => {
       }
     }
     
-    // Fallback to Ollama
-    console.log(`[AI] Falling back to Ollama for ${analysisType}...`);
-    const model = process.env.OLLAMA_MODEL || 'llava:13b';
-    let prompt = '';
-    
-    switch (analysisType) {
-      case 'license':
-        prompt = buildLicenseAnalysisPrompt();
-        break;
-      case 'vehicle':
-        prompt = buildVehicleAnalysisPrompt();
-        break;
-      case 'damage':
-        prompt = buildDamageAnalysisPrompt();
-        break;
-      default:
-        return res.status(400).json({ 
-          ok: false, 
-          error: 'Nieznany typ analizy' 
-        });
-    }
-    
-    // Dodaj instrukcje preprocessingu dla lepszego OCR
-    const enhancedPrompt = `${prompt}
-
-INSTRUKCJE PREPROCESSING:
-- Jeśli obraz jest ciemny, zwiększ kontrast
-- Jeśli tekst jest rozmyty, wyostrz go
-- Jeśli obraz jest przekręcony, obróć go
-- Skup się na czytelności tekstu
-
-ANALIZUJ TERAZ:`;
-    
-    const response = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        prompt: enhancedPrompt,
-        images: [imageBase64],
-        stream: false,
-        options: {
-          temperature: 0.0, // Zmniejszona temperatura dla lepszego OCR
-          top_p: 0.9,
-          top_k: 40,
-        },
-        keep_alive: '5m',
-      }),
+    // Jeśli Gemini nie działa, zwróć błąd
+    console.log(`[AI] Gemini failed for ${analysisType}, no fallback available`);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'AI analysis failed - Gemini API unavailable' 
     });
-
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status}`);
-    }
-
-          const result = await response.json();
-          const analysisResult = parseAIResponse(result.response);
-          
-          console.log(`[AI] Analiza ${analysisType} zakończona pomyślnie`);
-          console.log(`[AI] Surowa odpowiedź:`, result.response);
-          console.log(`[AI] Sparsowany wynik:`, analysisResult);
-          console.log(`[AI] Otrzymane dane obrazu:`, imageData ? 'MA DANE' : 'BRAK DANYCH');
-          console.log(`[AI] Długość danych obrazu:`, imageData ? imageData.length : 0);
-          console.log(`[AI] Typ danych obrazu:`, typeof imageData);
-          
-          return res.json({ 
-            ok: true, 
-            analysis: analysisResult,
-            rawResponse: result.response,
-            source: 'ollama'
-          });
 
   } catch (error) {
     console.error(`[AI] Błąd analizy ${analysisType}:`, error.message);
@@ -500,18 +433,16 @@ ANALIZUJ TERAZ:`;
 app.post('/api/ai/analyze', async (req, res) => {
   const { transcript = '' } = req.body || {};
 
-  // Spróbuj użyć lokalnego modelu Llama via Ollama (http://localhost:11434)
+  // Użyj Gemini API do analizy transkrypcji
   try {
-    const model = process.env.OLLAMA_MODEL || 'llava:7b';
-    const prompt = buildExtractionPrompt(transcript);
-    const json = await callOllama(model, prompt);
-    if (json && json.fields) {
-      console.log(`[AI] Ollama used successfully (model: ${model})`);
-      return res.json({ ok: true, fields: json.fields });
+    const geminiResult = await analyzeTextWithGemini(transcript);
+    if (geminiResult && geminiResult.fields) {
+      console.log(`[AI] Gemini used successfully for text analysis`);
+      return res.json({ ok: true, fields: geminiResult.fields });
     }
   } catch (e) {
     // Fallback do heurystyk poniżej
-    console.warn('Ollama extraction failed, falling back to heuristics:', e?.message || e);
+    console.warn('Gemini text analysis failed, falling back to heuristics:', e?.message || e);
   }
 
   // Bardzo prosta heurystyka PoC: wyciągnij kilka pól, resztę zasymuluj
@@ -539,9 +470,8 @@ app.post('/api/ai/analyze', async (req, res) => {
     driverBName: 'Jan Kowalski',
     driverBPolicyNumber: 'POL-PL-123456',
     vehicleBPlate: maybeAnyPlate || 'WX 12345',
-    incidentDetails: hasCollision
-      ? 'Kolizja na skrzyżowaniu, brak osób poszkodowanych.'
-      : 'Zdarzenie drogowe bez poszkodowanych.',
+    // Nie ustawiaj incidentDetails automatycznie - pozwól użytkownikowi samemu wpisać
+    incidentDetails: null,
     // Pola A – tylko propozycje (frontend ustawi je, jeśli puste)
     driverAName: driverAName || null,
     vehicleAPlate: vehicleAPlate || null,
@@ -984,9 +914,13 @@ function loadStatements(filePath) {
   }
 }
 
-// Zbuduj precyzyjny prompt do ekstrakcji pól. Wymagamy wyjścia wyłącznie JSON.
-function buildExtractionPrompt(transcript) {
-  return `Przeanalizuj poniższy opis zdarzenia drogowego i wyciągnij z niego informacje. Zwróć tylko JSON z polami:
+// Analiza tekstu za pomocą Gemini API
+async function analyzeTextWithGemini(transcript) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  const prompt = `Przeanalizuj poniższy opis zdarzenia drogowego i wyciągnij z niego informacje. Zwróć tylko JSON z polami:
 
 {
   "fields": {
@@ -1000,62 +934,46 @@ function buildExtractionPrompt(transcript) {
 Opis zdarzenia: "${transcript}"
 
 Jeśli jakieś informacje nie są dostępne, zostaw puste pole. Skup się na analizie uszkodzeń i okoliczności zdarzenia.`;
-}
 
-// Minimalny klient do Ollama /api/generate (stream=false)
-async function callOllama(model, prompt) {
-  const body = JSON.stringify({
-    model,
-    prompt,
-    // Stabilniejsze, bez strumieniowania – łatwiejszy parsing JSON
-    stream: false,
-    options: {
-      temperature: 0,
-    },
-    keep_alive: '5m',
-  });
-  const options = {
-    hostname: 'localhost',
-    port: 11434,
-    path: '/api/generate',
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-    timeout: Number(process.env.OLLAMA_TIMEOUT_MS || 60000),
-  };
-  const responseText = await httpRequest(options, body);
-  // Ollama zwraca JSON z polem "response" (string). W nim powinien być JSON od modelu.
-  const outer = JSON.parse(responseText);
-  const raw = outer?.response?.trim() || '';
-  // Spróbuj znaleźć blok JSON
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
-  if (start >= 0 && end > start) {
-    const jsonStr = raw.slice(start, end + 1);
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 1024,
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  if (!text) {
+    throw new Error('No response from Gemini API');
+  }
+
+  // Spróbuj wyciągnąć JSON z odpowiedzi
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
     try {
-      return JSON.parse(jsonStr);
+      return JSON.parse(jsonMatch[0]);
     } catch (e) {
-      return null;
+      console.warn('Failed to parse Gemini JSON response:', e);
     }
   }
-  return null;
+
+  throw new Error('Invalid JSON response from Gemini');
 }
 
-function httpRequest(options, body) {
-  return new Promise((resolve, reject) => {
-    const req = http.request(options, (res) => {
-      let data = '';
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => resolve(data));
-    });
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy(new Error('Request timeout'));
-    });
-    if (body) req.write(body);
-    req.end();
-  });
-}
+
 
 // Uruchom lokalny binarny Whisper, przekazując mu audio ze stdin; zwróć tekst
 function runWhisper(whisperBin, modelPath, audioBuffer) {
@@ -1349,72 +1267,6 @@ function parseDamageFromText(text) {
 
 // Funkcje pomocnicze dla analizy zdjęć AI
 
-function buildLicenseAnalysisPrompt() {
-  return `Jesteś ekspertem OCR (Optical Character Recognition). Przeanalizuj zdjęcie prawa jazdy bardzo dokładnie i wyciągnij TYLKO te informacje, które są wyraźnie widoczne i czytelne.
-
-INSTRUKCJE OCR:
-- Czytaj każdy tekst bardzo dokładnie, litera po literze
-- Sprawdź wszystkie sekcje dokumentu
-- Jeśli tekst jest nieczytelny, rozmyty lub częściowo zasłonięty - wpisz null
-- NIE WYMYŚLAJ żadnych danych
-
-Zwróć wynik w formacie JSON:
-
-{
-  "name": "imię i nazwisko (lub null jeśli nieczytelne)",
-  "address": "adres zamieszkania (lub null jeśli nieczytelny)", 
-  "phone": "numer telefonu (lub null jeśli nieczytelny)",
-  "email": "adres email (lub null jeśli nieczytelny)",
-  "licenseNumber": "numer prawa jazdy (lub null jeśli nieczytelny)",
-  "pesel": "numer PESEL (lub null jeśli nieczytelny)",
-  "birthDate": "data urodzenia (lub null jeśli nieczytelna)",
-  "issueDate": "data wydania (lub null jeśli nieczytelna)",
-  "expiryDate": "data ważności (lub null jeśli nieczytelna)"
-}
-
-WAŻNE: Zwróć tylko poprawny JSON bez dodatkowych komentarzy.`;
-}
-
-function buildVehicleAnalysisPrompt() {
-  return `Jesteś ekspertem OCR (Optical Character Recognition). Przeanalizuj zdjęcie pojazdu bardzo dokładnie i wyciągnij TYLKO te informacje, które są wyraźnie widoczne i czytelne.
-
-INSTRUKCJE OCR dla tablic rejestracyjnych:
-- Skup się głównie na numerze rejestracyjnym - to najważniejsze
-- Czytaj każdą literę i cyfrę bardzo dokładnie
-- Sprawdź czy tablica jest w pełni widoczna i niezasłonięta
-- Jeśli tablica jest nieczytelna, rozmyta lub częściowo zasłonięta - wpisz null
-- NIE WYMYŚLAJ numerów rejestracyjnych
-
-Zwróć wynik w formacie JSON:
-
-{
-  "licensePlate": "numer rejestracyjny (lub null jeśli nieczytelny)",
-  "make": "marka pojazdu (lub null jeśli nieczytelna)",
-  "model": "model pojazdu (lub null jeśli nieczytelny)", 
-  "year": "rok produkcji (lub null jeśli nieczytelny)",
-  "color": "kolor pojazdu (lub null jeśli nieczytelny)",
-  "vin": "numer VIN (lub null jeśli nieczytelny)"
-}
-
-WAŻNE: Zwróć tylko poprawny JSON bez dodatkowych komentarzy.`;
-}
-
-function buildDamageAnalysisPrompt() {
-  return `Przeanalizuj zdjęcie uszkodzeń pojazdu i opisz TYLKO to, co wyraźnie widzisz na zdjęciu.
-
-WAŻNE: Opisz tylko rzeczywiste uszkodzenia widoczne na zdjęciu. NIE WYMYŚLAJ szczegółów.
-
-Zwróć wynik w formacie JSON:
-
-{
-  "damageDescription": "szczegółowy opis rzeczywistych uszkodzeń widocznych na zdjęciu",
-  "affectedParts": ["lista rzeczywiście uszkodzonych części widocznych na zdjęciu"],
-  "severity": "stopień uszkodzenia (lekki/średni/poważny) na podstawie tego co widzisz",
-  "estimatedCost": "szacunkowy koszt naprawy (lub null jeśli nie można oszacować)"
-}
-
-Opisz dokładnie jakie części są uszkodzone, jak wyglądają uszkodzenia. Zwróć tylko poprawny JSON bez dodatkowych komentarzy.`;
-}
 
 function parseAIResponse(response) {
   try {
