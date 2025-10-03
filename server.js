@@ -44,10 +44,14 @@ const basicAuth = (req, res, next) => {
   next();
 };
 
-// Zastosuj Basic Auth do wszystkich ścieżek (oprócz healthcheck i panelu admin)
+// Zastosuj Basic Auth tylko do strony głównej (oprócz healthcheck i panelu admin)
 app.use((req, res, next) => {
   // Pomiń auth dla healthcheck i panelu admin
   if (req.path === '/health' || req.path === '/healthcheck' || req.path === '/admin.html' || req.path.startsWith('/api/admin/')) {
+    return next();
+  }
+  // Pomiń auth dla wszystkich innych ścieżek oprócz strony głównej
+  if (req.path !== '/') {
     return next();
   }
   return basicAuth(req, res, next);
