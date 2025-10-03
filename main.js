@@ -6,6 +6,44 @@
 document.addEventListener('DOMContentLoaded', function() {
   const $ = (id) => document.getElementById(id);
 
+  // Obsługa ukrywania banera reklamowego przy przewijaniu
+  function initAdBannerScroll() {
+    const adBanner = document.querySelector('.ad-banner');
+    if (!adBanner) return;
+
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    function updateAdBanner() {
+      const currentScrollY = window.scrollY;
+      
+      // Ukryj baner przy przewijaniu w dół, pokaż przy przewijaniu w górę
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        // Przewijanie w dół - ukryj baner
+        adBanner.classList.add('hidden');
+      } else {
+        // Przewijanie w górę lub na początku strony - pokaż baner
+        adBanner.classList.remove('hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+      ticking = false;
+    }
+
+    function requestTick() {
+      if (!ticking) {
+        requestAnimationFrame(updateAdBanner);
+        ticking = true;
+      }
+    }
+
+    // Nasłuchuj przewijania
+    window.addEventListener('scroll', requestTick, { passive: true });
+  }
+
+  // Inicjalizuj obsługę banera
+  initAdBannerScroll();
+
   const fields = {
     driverAName: $('driverAName'),
     driverAEmail: $('driverAEmail'),

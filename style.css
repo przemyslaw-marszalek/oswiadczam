@@ -12,6 +12,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial
   position: sticky;
   top: 0;
   z-index: 50;
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Ukryj baner przy przewijaniu w dół */
+.ad-banner.hidden {
+  transform: translateY(-100%);
 }
 
 .ad-content {
@@ -101,9 +107,9 @@ audio { width: 100%; margin-top: 8px; }
 @media (max-width: 768px) {
   .container { padding: 16px; }
   
-  /* Ukryj baner reklamowy na urządzeniach mobilnych */
+  /* Baner reklamowy na urządzeniach mobilnych - pokazuj ale ukryj przy przewijaniu */
   .ad-banner {
-    display: none;
+    display: block;
   }
   
   .ad-content {
