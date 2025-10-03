@@ -912,8 +912,26 @@ function generateValidUntilDate() {
 // - Baza danych: zastąp memoryStore trwałą bazą (np. Postgres), dodaj warstwę repozytorium
 // - API UFG: zastąp simulatePolicyVerification prawdziwym wywołaniem API UFG
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running at http://0.0.0.0:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running at http://0.0.0.0:${PORT}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`✅ Healthcheck available at: http://0.0.0.0:${PORT}/health`);
+});
+
+// Error handling
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
 // Pomocnicze: kapitalizacja słów imienia/nazwiska
