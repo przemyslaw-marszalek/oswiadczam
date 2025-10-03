@@ -696,14 +696,28 @@ async function generatePDFBuffer(item) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
     
-    // Użyj fontów Liberation Sans z pełnym wsparciem polskich znaków
-    const fontPath = '/Users/pma/Library/Fonts/LiberationSans-Regular.ttf';
-    const boldFontPath = '/Users/pma/Library/Fonts/LiberationSans-Bold.ttf';
-    doc.registerFont('LiberationSans', fontPath);
-    doc.registerFont('LiberationSans-Bold', boldFontPath);
+    // Użyj fontów z projektu lub domyślnych fontów PDFKit
+    let fontName = 'Helvetica';
+    let boldFontName = 'Helvetica-Bold';
     
-    const fontName = 'LiberationSans';
-    const boldFontName = 'LiberationSans-Bold';
+    try {
+      // Sprawdź czy fonty Liberation Sans są dostępne lokalnie (development)
+      const fontPath = '/Users/pma/Library/Fonts/LiberationSans-Regular.ttf';
+      const boldFontPath = '/Users/pma/Library/Fonts/LiberationSans-Bold.ttf';
+      const fs = require('fs');
+      
+      if (fs.existsSync(fontPath) && fs.existsSync(boldFontPath)) {
+        doc.registerFont('LiberationSans', fontPath);
+        doc.registerFont('LiberationSans-Bold', boldFontPath);
+        fontName = 'LiberationSans';
+        boldFontName = 'LiberationSans-Bold';
+        console.log('[PDF] Using Liberation Sans fonts');
+      } else {
+        console.log('[PDF] Using default Helvetica fonts');
+      }
+    } catch (error) {
+      console.log('[PDF] Using default Helvetica fonts (fallback)');
+    }
 
     // Format zgodny z wzorem oświadczenia sprawcy kolizji
     // Prawy górny róg - miejscowość i data
@@ -866,11 +880,18 @@ app.get('/api/statement/:id/pdf', checkAdminAuth, async (req, res) => {
   res.setHeader('Content-Disposition', `inline; filename="oswiadczenie_${id}.pdf"`);
 
   try {
+    console.log(`[PDF] Generating PDF for statement ${id}`);
     const pdfBuffer = await generatePDFBuffer(item);
+    console.log(`[PDF] PDF generated successfully, size: ${pdfBuffer.length} bytes`);
     res.send(pdfBuffer);
   } catch (error) {
-    console.error('PDF generation error:', error);
-    res.status(500).send('Error generating PDF');
+    console.error('[PDF] PDF generation error:', error);
+    console.error('[PDF] Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'PDF generation failed', 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
