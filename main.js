@@ -35,7 +35,9 @@ document.addEventListener('DOMContentLoaded', function() {
     vehicleBPlate: $('vehicleBPlate'),
     incidentDetails: $('incidentDetails'),
     damageDescriptionVictim: $('damageDescriptionVictim'),
+    damageValueVictim: $('damageValueVictim'),
     damageDescriptionPerpetrator: $('damageDescriptionPerpetrator'),
+    damageValuePerpetrator: $('damageValuePerpetrator'),
     additionalInfo: $('additionalInfo'),
     victimPhotos: $('victimPhotos'),
     perpetratorPhotos: $('perpetratorPhotos'),
@@ -70,6 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Stan wizarda
   let currentWizardStep = 1;
   const totalWizardSteps = 7;
+  let wizardCompleted = false;
   
   // Śledzenie aktywnych analiz AI
   const activeAnalyses = new Set();
@@ -121,6 +124,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Inicjalizacja podpisów
   initializeSignatures();
   
+  // Inicjalizacja pełnoekranowego podpisywania
+  initializeFullscreenSignatures();
+  
   // Inicjalizacja przełączników właścicieli
   initializeOwnerToggles();
   
@@ -132,6 +138,9 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Ustaw początkowy stan przycisków
   updateButtonStates();
+  
+  // Ustaw domyślne żółte podświetlenie wszystkich pól
+  highlightAllFieldsByDefault();
   
   // Upewnij się, że banner nagrywania jest ukryty na początku
   if (speechBanner) {
@@ -154,6 +163,199 @@ document.addEventListener('DOMContentLoaded', function() {
     clearDriverBSignature.addEventListener('click', () => {
       clearSignature(driverBSignature, driverBSignatureStatus);
     });
+  }
+
+  // Inicjalizacja pełnoekranowego podpisywania
+  function initializeFullscreenSignatures() {
+    const fullscreenModal = document.getElementById('fullscreenSignatureModal');
+    const fullscreenCanvas = document.getElementById('fullscreenSignatureCanvas');
+    const fullscreenTitle = document.getElementById('fullscreenSignatureTitle');
+    const fullscreenClearBtn = document.getElementById('fullscreenClearSignature');
+    const fullscreenSaveBtn = document.getElementById('fullscreenSaveSignature');
+    const fullscreenCloseBtn = document.getElementById('fullscreenCloseSignature');
+    
+    let currentSignatureId = null;
+    let fullscreenCtx = null;
+    let isDrawing = false;
+    let hasSignature = false;
+
+    // Przyciski "Złóż podpis"
+    const fullscreenDriverABtn = document.getElementById('fullscreenDriverASignature');
+    const fullscreenDriverBBtn = document.getElementById('fullscreenDriverBSignature');
+
+    fullscreenDriverABtn.addEventListener('click', () => {
+      openFullscreenSignature('driverA', 'Podpis sprawcy kolizji');
+    });
+
+    fullscreenDriverBBtn.addEventListener('click', () => {
+      openFullscreenSignature('driverB', 'Podpis poszkodowanego');
+    });
+
+    // Przycisk zamknięcia
+    fullscreenCloseBtn.addEventListener('click', () => {
+      closeFullscreenSignature();
+    });
+
+    // Przycisk wyczyść
+    fullscreenClearBtn.addEventListener('click', () => {
+      clearFullscreenSignature();
+    });
+
+    // Przycisk zapisz
+    fullscreenSaveBtn.addEventListener('click', () => {
+      saveFullscreenSignature();
+    });
+
+    // Zamknij modal po kliknięciu w tło
+    fullscreenModal.addEventListener('click', (e) => {
+      if (e.target === fullscreenModal) {
+        closeFullscreenSignature();
+      }
+    });
+
+    // Obsługa zmiany orientacji ekranu
+    window.addEventListener('orientationchange', () => {
+      if (fullscreenModal.style.display === 'block') {
+        // Ponownie skalować canvas po zmianie orientacji
+        setTimeout(() => {
+          const rect = fullscreenCanvas.getBoundingClientRect();
+          
+          // Zapisz obecny podpis
+          const currentImageData = fullscreenCtx.getImageData(0, 0, fullscreenCanvas.width, fullscreenCanvas.height);
+          
+          // Ustaw nowy rozmiar
+          fullscreenCanvas.width = rect.width;
+          fullscreenCanvas.height = rect.height;
+          
+          // Przywróć podpis
+          fullscreenCtx.putImageData(currentImageData, 0, 0);
+        }, 500); // Opóźnienie dla stabilizacji orientacji
+      }
+    });
+
+    function openFullscreenSignature(signatureId, title) {
+      currentSignatureId = signatureId;
+      fullscreenTitle.textContent = title;
+      fullscreenModal.style.display = 'block';
+      
+      // Ustaw rozmiar canvas na pełny ekran
+      setTimeout(() => {
+        const rect = fullscreenCanvas.getBoundingClientRect();
+        fullscreenCanvas.width = rect.width;
+        fullscreenCanvas.height = rect.height;
+        
+        fullscreenCtx = fullscreenCanvas.getContext('2d');
+        fullscreenCtx.strokeStyle = '#1f2937';
+        fullscreenCtx.lineWidth = 3;
+        fullscreenCtx.lineCap = 'round';
+        fullscreenCtx.lineJoin = 'round';
+        
+        // Skopiuj istniejący podpis jeśli istnieje
+        const originalCanvas = document.getElementById(signatureId + 'Signature');
+        if (originalCanvas && originalCanvas.toDataURL() !== originalCanvas.toDataURL('image/png', 0.1)) {
+          const originalCtx = originalCanvas.getContext('2d');
+          const imageData = originalCtx.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+          fullscreenCtx.putImageData(imageData, 0, 0);
+          hasSignature = true;
+        } else {
+          hasSignature = false;
+        }
+        
+        setupFullscreenCanvasEvents();
+      }, 100);
+    }
+
+    function setupFullscreenCanvasEvents() {
+      // Obsługa myszy
+      fullscreenCanvas.addEventListener('mousedown', (e) => {
+        isDrawing = true;
+        const rect = fullscreenCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        fullscreenCtx.beginPath();
+        fullscreenCtx.moveTo(x, y);
+        hasSignature = true;
+      });
+
+      fullscreenCanvas.addEventListener('mousemove', (e) => {
+        if (!isDrawing) return;
+        const rect = fullscreenCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        fullscreenCtx.lineTo(x, y);
+        fullscreenCtx.stroke();
+      });
+
+      fullscreenCanvas.addEventListener('mouseup', () => {
+        isDrawing = false;
+      });
+
+      // Obsługa dotyku
+      fullscreenCanvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        const rect = fullscreenCanvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        fullscreenCtx.beginPath();
+        fullscreenCtx.moveTo(x, y);
+        hasSignature = true;
+      });
+
+      fullscreenCanvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!isDrawing) return;
+        const rect = fullscreenCanvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        fullscreenCtx.lineTo(x, y);
+        fullscreenCtx.stroke();
+      });
+
+      fullscreenCanvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        isDrawing = false;
+      });
+    }
+
+    function clearFullscreenSignature() {
+      fullscreenCtx.clearRect(0, 0, fullscreenCanvas.width, fullscreenCanvas.height);
+      hasSignature = false;
+    }
+
+    function saveFullscreenSignature() {
+      if (!hasSignature) {
+        alert('Proszę złożyć podpis przed zapisaniem.');
+        return;
+      }
+
+      // Skopiuj podpis z pełnoekranowego canvas do oryginalnego
+      const originalCanvas = document.getElementById(currentSignatureId + 'Signature');
+      const originalCtx = originalCanvas.getContext('2d');
+      
+      // Wyczyść oryginalny canvas
+      originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+      
+      // Skaluj i skopiuj podpis - użyj rzeczywistego rozmiaru canvas
+      originalCtx.drawImage(fullscreenCanvas, 0, 0, originalCanvas.width, originalCanvas.height);
+      
+      // Zaktualizuj status
+      const statusElement = document.getElementById(currentSignatureId + 'SignatureStatus');
+      statusElement.textContent = 'Podpisano';
+      statusElement.style.color = '#10b981';
+      
+      closeFullscreenSignature();
+    }
+
+    function closeFullscreenSignature() {
+      fullscreenModal.style.display = 'none';
+      currentSignatureId = null;
+      fullscreenCtx = null;
+      isDrawing = false;
+      hasSignature = false;
+    }
   }
 
   // Funkcja inicjalizacji canvas do podpisu
@@ -244,6 +446,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (signed) {
         element.textContent = '✓ Podpisano';
         element.classList.add('signed');
+        // Usuń podświetlenie gdy podpisano
+        element.style.backgroundColor = '';
+        element.style.borderColor = '';
+        element.style.borderWidth = '';
       } else {
         element.textContent = 'Nie podpisano';
         element.classList.remove('signed');
@@ -335,10 +541,106 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   
+  // Funkcja walidacji wszystkich kroków wizarda
+  function validateAllStepsPhotos() {
+    const stepsToValidate = [
+      { step: 1, name: 'prawa jazdy sprawcy', required: 2, fileInput: $('licenseAFile') },
+      { step: 2, name: 'prawa jazdy poszkodowanego', required: 2, fileInput: $('licenseBFile') },
+      { step: 3, name: 'pojazdu poszkodowanego', required: 2, fileInput: $('vehicleBFile') },
+      { step: 4, name: 'pojazdu sprawcy', required: 2, fileInput: $('vehicleAFile') },
+      { step: 5, name: 'uszkodzeń pojazdu poszkodowanego', required: 1, fileInput: $('damageBFile') },
+      { step: 6, name: 'uszkodzeń pojazdu sprawcy', required: 1, fileInput: $('damageAFile') }
+    ];
+    
+    const missingSteps = [];
+    
+    for (const stepInfo of stepsToValidate) {
+      let currentPhotos = 0;
+      if (stepInfo.fileInput && stepInfo.fileInput.__dataUrls) {
+        currentPhotos = stepInfo.fileInput.__dataUrls.length;
+      }
+      
+      if (currentPhotos < stepInfo.required) {
+        const missing = stepInfo.required - currentPhotos;
+        missingSteps.push(`Krok ${stepInfo.step}: ${missing} zdjęć ${stepInfo.name} (obecnie: ${currentPhotos}/${stepInfo.required})`);
+      }
+    }
+    
+    if (missingSteps.length > 0) {
+      alert(`❌ Nie można zakończyć wizarda!\n\nBrakuje zdjęć w następujących krokach:\n\n${missingSteps.join('\n')}\n\nDodaj wymagane zdjęcia przed zakończeniem wizarda.`);
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Funkcja walidacji wymaganej liczby zdjęć dla aktualnego kroku
+  function validateCurrentStepPhotos() {
+    let requiredPhotos = 0;
+    let currentPhotos = 0;
+    let stepName = '';
+    let fileInput = null;
+    
+    switch (currentWizardStep) {
+      case 1: // Prawo jazdy sprawcy
+        requiredPhotos = 2;
+        stepName = 'prawa jazdy sprawcy';
+        fileInput = $('licenseAFile');
+        break;
+      case 2: // Prawo jazdy poszkodowanego
+        requiredPhotos = 2;
+        stepName = 'prawa jazdy poszkodowanego';
+        fileInput = $('licenseBFile');
+        break;
+      case 3: // Pojazd poszkodowanego
+        requiredPhotos = 2;
+        stepName = 'pojazdu poszkodowanego';
+        fileInput = $('vehicleBFile');
+        break;
+      case 4: // Pojazd sprawcy
+        requiredPhotos = 2;
+        stepName = 'pojazdu sprawcy';
+        fileInput = $('vehicleAFile');
+        break;
+      case 5: // Uszkodzenia poszkodowanego
+        requiredPhotos = 1; // Minimum 1 zdjęcie
+        stepName = 'uszkodzeń pojazdu poszkodowanego';
+        fileInput = $('damageBFile');
+        break;
+      case 6: // Uszkodzenia sprawcy
+        requiredPhotos = 1; // Minimum 1 zdjęcie
+        stepName = 'uszkodzeń pojazdu sprawcy';
+        fileInput = $('damageAFile');
+        break;
+      case 7: // Lokalizacja i szczegóły
+        return true; // Ten krok nie wymaga zdjęć
+      default:
+        return true;
+    }
+    
+    if (fileInput && fileInput.__dataUrls) {
+      currentPhotos = fileInput.__dataUrls.length;
+    }
+    
+    if (currentPhotos < requiredPhotos) {
+      const missing = requiredPhotos - currentPhotos;
+      alert(`❌ Krok ${currentWizardStep}: Wymagane ${requiredPhotos} zdjęć ${stepName}.\n\nObecnie masz: ${currentPhotos} zdjęć\nBrakuje: ${missing} zdjęć\n\nDodaj wymaganą liczbę zdjęć przed przejściem dalej.`);
+      return false;
+    }
+    
+    return true;
+  }
+
   // Funkcja inicjalizacji wizarda AI
   function initializeWizard() {
     // Przełączanie między trybami
     wizardBtn.addEventListener('click', () => {
+      // Zablokuj ponowne uruchamianie wizarda po zakończeniu
+      if (wizardCompleted) {
+        alert('Wizard został już zakończony. Nie można go uruchomić ponownie.');
+        return;
+      }
+      
       wizardBtn.classList.add('active');
       manualBtn.classList.remove('active');
       wizardSection.classList.remove('hidden');
@@ -366,23 +668,39 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Nawigacja wizarda
     wizardNextBtn.addEventListener('click', () => {
-      if (currentWizardStep < totalWizardSteps) {
+      console.log('🚨 WIZARD: Next button clicked, current step:', currentWizardStep);
+      if (currentWizardStep < totalWizardSteps && !wizardCompleted) {
+        // Sprawdź czy aktualny krok ma wymaganą liczbę zdjęć
+        if (!validateCurrentStepPhotos()) {
+          return; // Zatrzymaj jeśli walidacja nie przeszła
+        }
+        
         // Analizuj dane z aktualnego kroku przed przejściem dalej
+        console.log('🚨 WIZARD: Calling analyzeCurrentStep before moving to next step');
         analyzeCurrentStep();
         
         currentWizardStep++;
+        console.log('🚨 WIZARD: Moving to step:', currentWizardStep);
         updateWizardStep();
       }
     });
     
     wizardPrevBtn.addEventListener('click', () => {
-      if (currentWizardStep > 1) {
+      // Zablokuj całkowicie możliwość cofania się w wizardze
+      console.log('🚨 WIZARD: Próba cofnięcia się zablokowana');
+      return;
+      
+      if (currentWizardStep > 1 && !wizardCompleted) {
         currentWizardStep--;
         updateWizardStep();
       }
     });
     
     wizardFinishBtn.addEventListener('click', () => {
+      // Sprawdź czy wszystkie kroki mają wymaganą liczbę zdjęć
+      if (!validateAllStepsPhotos()) {
+        return; // Zatrzymaj jeśli walidacja nie przeszła
+      }
       finishWizard();
     });
     
@@ -420,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
     wizardStepText.textContent = `Krok ${currentWizardStep} z ${totalWizardSteps}`;
     
     // Aktualizuj przyciski
-    wizardPrevBtn.disabled = currentWizardStep === 1;
+    wizardPrevBtn.disabled = true; // Zawsze wyłączony - nie można cofać się w wizardze
     
     if (currentWizardStep === totalWizardSteps) {
       wizardNextBtn.classList.add('hidden');
@@ -439,6 +757,14 @@ function initializeWizardPhotoUploads() {
   const licenseAPreviews = $('licenseAPreviews');
   
   if (licenseAUpload && licenseAFile && licenseAPreviews) {
+    // Dodaj event listener na kliknięcie w obszar upload
+    licenseAUpload.addEventListener('click', (e) => {
+      // Nie blokuj domyślnego zachowania - pozwól na kliknięcie w input
+      if (e.target !== licenseAFile) {
+        licenseAFile.click();
+      }
+    });
+    
     licenseAFile.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       
@@ -479,9 +805,28 @@ function initializeWizardPhotoUploads() {
   const licenseBFile = $('licenseBFile');
   const licenseBPreviews = $('licenseBPreviews');
   
+  console.log('🚨 WIZARD: Initializing step 2 elements:', {
+    licenseBUpload: !!licenseBUpload,
+    licenseBFile: !!licenseBFile,
+    licenseBPreviews: !!licenseBPreviews
+  });
+  
   if (licenseBUpload && licenseBFile && licenseBPreviews) {
+    console.log('🚨 WIZARD: Adding event listener to licenseBFile');
+    
+    // Dodaj event listener na kliknięcie w obszar upload
+    licenseBUpload.addEventListener('click', (e) => {
+      // Nie blokuj domyślnego zachowania - pozwól na kliknięcie w input
+      if (e.target !== licenseBFile) {
+        licenseBFile.click();
+      }
+    });
+    
+    // Dodaj event listener bezpośrednio (bez cloneNode dla iOS Chrome)
     licenseBFile.addEventListener('change', async (e) => {
+      console.log('🚨 WIZARD: licenseBFile change event triggered');
       const files = Array.from(e.target.files);
+      console.log('🚨 WIZARD: Files selected:', files.length);
       
       if (!licenseBFile.__dataUrls) {
         licenseBFile.__dataUrls = [];
@@ -507,11 +852,20 @@ function initializeWizardPhotoUploads() {
         }
       }
       
+      console.log('🚨 WIZARD: Total photos after adding:', licenseBFile.__dataUrls.length);
+      console.log('🚨 WIZARD: Calling updatePhotoPreviews');
       updatePhotoPreviews('licenseBPreviews', licenseBFile.__dataUrls);
       
       if (licenseBFile.__dataUrls.length > 0) {
         licenseBUpload.querySelector('.upload-placeholder').classList.add('hidden');
       }
+      
+      // Dodaj debug dla kroku 2
+      console.log('🚨 WIZARD: Step 2 photos added, checking if analysis should trigger');
+      console.log('🚨 WIZARD: Current step:', currentWizardStep);
+      console.log('🚨 WIZARD: LicenseB dataUrls:', licenseBFile.__dataUrls);
+      
+      // Usunięto automatyczny trigger - analiza będzie uruchamiana tylko przez przycisk "Dalej"
     });
   }
   
@@ -521,6 +875,14 @@ function initializeWizardPhotoUploads() {
   const vehicleAPreviews = $('vehicleAPreviews');
   
   if (vehicleAUpload && vehicleAFile && vehicleAPreviews) {
+    // Dodaj event listener na kliknięcie w obszar upload
+    vehicleAUpload.addEventListener('click', (e) => {
+      // Nie blokuj domyślnego zachowania - pozwól na kliknięcie w input
+      if (e.target !== vehicleAFile) {
+        vehicleAFile.click();
+      }
+    });
+    
     vehicleAFile.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       
@@ -562,6 +924,14 @@ function initializeWizardPhotoUploads() {
   const vehicleBPreviews = $('vehicleBPreviews');
   
   if (vehicleBUpload && vehicleBFile && vehicleBPreviews) {
+    // Dodaj event listener na kliknięcie w obszar upload
+    vehicleBUpload.addEventListener('click', (e) => {
+      // Nie blokuj domyślnego zachowania - pozwól na kliknięcie w input
+      if (e.target !== vehicleBFile) {
+        vehicleBFile.click();
+      }
+    });
+    
     vehicleBFile.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       
@@ -603,6 +973,14 @@ function initializeWizardPhotoUploads() {
   const damageBPreviews = $('damageBPreviews');
   
   if (damageBUpload && damageBFile && damageBPreviews) {
+    // Dodaj event listener na kliknięcie w obszar upload
+    damageBUpload.addEventListener('click', (e) => {
+      // Nie blokuj domyślnego zachowania - pozwól na kliknięcie w input
+      if (e.target !== damageBFile) {
+        damageBFile.click();
+      }
+    });
+    
     damageBFile.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       
@@ -644,6 +1022,14 @@ function initializeWizardPhotoUploads() {
   const damageAPreviews = $('damageAPreviews');
   
   if (damageAUpload && damageAFile && damageAPreviews) {
+    // Dodaj event listener na kliknięcie w obszar upload
+    damageAUpload.addEventListener('click', (e) => {
+      // Nie blokuj domyślnego zachowania - pozwól na kliknięcie w input
+      if (e.target !== damageAFile) {
+        damageAFile.click();
+      }
+    });
+    
     damageAFile.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       
@@ -905,6 +1291,44 @@ function initializeWizardPhotoUploads() {
     }
   }
 
+  // Funkcja do ustawienia domyślnego żółtego podświetlenia wszystkich pól
+  function highlightAllFieldsByDefault() {
+    const fieldsToHighlight = [
+      'driverAName', 'driverAEmail', 'driverAAddress', 'driverALicenseCategory', 
+      'driverALicenseNumber', 'driverALicenseIssuer', 'vehicleAMake', 'vehicleAOwner',
+      'driverAPolicyInfo', 'driverAPolicyValidUntil', 'vehicleAPlate',
+      'location', 'datetime',
+      'driverBName', 'driverBEmail', 'driverBAddress', 'driverBLicenseCategory',
+      'driverBLicenseNumber', 'driverBLicenseIssuer', 'vehicleBMake', 'vehicleBOwner',
+      'driverBPolicyInfo', 'driverBPolicyValidUntil', 'vehicleBPlate',
+      'incidentDetails', 'damageDescriptionVictim', 'damageValueVictim', 'damageDescriptionPerpetrator', 'damageValuePerpetrator', 'additionalInfo'
+    ];
+
+    fieldsToHighlight.forEach(fieldId => {
+      const field = $(fieldId);
+      if (field) {
+        field.style.backgroundColor = '#fff3cd';
+        field.style.borderColor = '#ffc107';
+        field.style.borderWidth = '2px';
+      }
+    });
+
+    // Podświetl pola podpisów jeśli nie są podpisane
+    const driverASignatureStatus = $('driverASignatureStatus');
+    const driverBSignatureStatus = $('driverBSignatureStatus');
+    
+    if (driverASignatureStatus && !driverASignatureStatus.classList.contains('signed')) {
+      driverASignatureStatus.style.backgroundColor = '#fff3cd';
+      driverASignatureStatus.style.borderColor = '#ffc107';
+      driverASignatureStatus.style.borderWidth = '2px';
+    }
+    if (driverBSignatureStatus && !driverBSignatureStatus.classList.contains('signed')) {
+      driverBSignatureStatus.style.backgroundColor = '#fff3cd';
+      driverBSignatureStatus.style.borderColor = '#ffc107';
+      driverBSignatureStatus.style.borderWidth = '2px';
+    }
+  }
+
   // Funkcja zakończenia wizarda
   async function finishWizard() {
     console.log('🏁 Kończę wizard - czekam na uzupełnienie wszystkich pól...');
@@ -985,6 +1409,20 @@ function initializeWizardPhotoUploads() {
     } else {
       alert('Wizard zakończony! Formularz został w pełni automatycznie wypełniony na podstawie analizy AI.');
     }
+    
+    // Oznacz wizard jako zakończony
+    wizardCompleted = true;
+    
+    // Zablokuj wszystkie przyciski wizarda
+    wizardPrevBtn.disabled = true;
+    wizardNextBtn.disabled = true;
+    wizardFinishBtn.disabled = true;
+    
+    // Zaktualizuj stan przycisków
+    updateWizardStep();
+    
+    // Zaktualizuj podgląd oświadczenia
+    updatePreview();
   }
   
   // Funkcja zbierania danych z wizarda
@@ -1040,37 +1478,52 @@ function initializeWizardPhotoUploads() {
   // Funkcja analizy zdjęć AI
   // Funkcja do analizy aktualnego kroku wizarda
   async function analyzeCurrentStep() {
+    console.log('🚨 WIZARD: analyzeCurrentStep called for step:', currentWizardStep);
     const stepData = getCurrentStepData();
-    if (!stepData) return;
+    console.log('🚨 WIZARD: stepData from getCurrentStepData:', stepData);
+    if (!stepData) {
+      console.log('🚨 WIZARD: No stepData, returning early');
+      return;
+    }
     
     console.log(`🔍 Analizuję krok ${currentWizardStep}:`, stepData);
     
-    // Uruchom analizę w tle (bez await)
-    analyzeStepData(stepData, currentWizardStep);
+    // Uruchom analizę w tle (bez await) - tylko jeśli nie jest już aktywna
+    const analysisId = `step-${currentWizardStep}-${stepData.type}`;
+    if (!activeAnalyses.has(analysisId)) {
+      analyzeStepData(stepData, currentWizardStep);
+    } else {
+      console.log(`🚨 WIZARD: Analysis ${analysisId} already active, skipping`);
+    }
   }
   
   // Funkcja do pobierania danych z aktualnego kroku
   function getCurrentStepData() {
+    console.log('🚨 WIZARD: getCurrentStepData called for step:', currentWizardStep);
     switch (currentWizardStep) {
       case 1: // Prawo jazdy sprawcy
         const licenseAFile = $('licenseAFile');
+        console.log('🚨 WIZARD: Step 1 - licenseAFile:', licenseAFile);
+        console.log('🚨 WIZARD: Step 1 - licenseAFile.__dataUrls:', licenseAFile ? licenseAFile.__dataUrls : 'no file');
         return licenseAFile && licenseAFile.__dataUrls && licenseAFile.__dataUrls.length > 0 ? 
           { type: 'license', data: licenseAFile.__dataUrls.map(photo => photo.dataUrl), target: 'driverA' } : null;
       
       case 2: // Prawo jazdy poszkodowanego
         const licenseBFile = $('licenseBFile');
+        console.log('🚨 WIZARD: Step 2 - licenseBFile:', licenseBFile);
+        console.log('🚨 WIZARD: Step 2 - licenseBFile.__dataUrls:', licenseBFile ? licenseBFile.__dataUrls : 'no file');
         return licenseBFile && licenseBFile.__dataUrls && licenseBFile.__dataUrls.length > 0 ? 
           { type: 'license', data: licenseBFile.__dataUrls.map(photo => photo.dataUrl), target: 'driverB' } : null;
       
-      case 3: // Pojazd sprawcy
-        const vehicleAFile = $('vehicleAFile');
-        return vehicleAFile && vehicleAFile.__dataUrls && vehicleAFile.__dataUrls.length > 0 ? 
-          { type: 'vehicle', data: vehicleAFile.__dataUrls.map(photo => photo.dataUrl), target: 'vehicleA' } : null;
-      
-      case 4: // Pojazd poszkodowanego
+      case 3: // Pojazd poszkodowanego
         const vehicleBFile = $('vehicleBFile');
         return vehicleBFile && vehicleBFile.__dataUrls && vehicleBFile.__dataUrls.length > 0 ? 
           { type: 'vehicle', data: vehicleBFile.__dataUrls.map(photo => photo.dataUrl), target: 'vehicleB' } : null;
+      
+      case 4: // Pojazd sprawcy
+        const vehicleAFile = $('vehicleAFile');
+        return vehicleAFile && vehicleAFile.__dataUrls && vehicleAFile.__dataUrls.length > 0 ? 
+          { type: 'vehicle', data: vehicleAFile.__dataUrls.map(photo => photo.dataUrl), target: 'vehicleA' } : null;
       
       case 5: // Uszkodzenia poszkodowanego
         const damageBFile = $('damageBFile');
@@ -1139,6 +1592,8 @@ function transferDamagePhotosToField(fieldId, photos, prefix) {
         if (data.email) await streamFillField('driverAEmail', data.email, { speed: 30 });
         // Sprawdź stan przycisków po wypełnieniu e-maila sprawcy
         if (data.email) updateButtonStates();
+        // Aktualizuj podgląd oświadczenia
+        updatePreview();
       } else if (fieldType === 'driverB') {
         if (data.name) await streamFillField('driverBName', data.name, { speed: 30 });
         if (data.address) await streamFillField('driverBAddress', data.address, { speed: 20 });
@@ -1148,26 +1603,66 @@ function transferDamagePhotosToField(fieldId, photos, prefix) {
         if (data.email) await streamFillField('driverBEmail', data.email, { speed: 30 });
         // Sprawdź stan przycisków po wypełnieniu e-maila poszkodowanego
         if (data.email) updateButtonStates();
+        // Aktualizuj podgląd oświadczenia
+        updatePreview();
       } else if (fieldType === 'vehicleA') {
-        if (data.licensePlate) await streamFillField('vehicleAPlate', data.licensePlate, { speed: 40 });
+        if (data.licensePlate) {
+          await streamFillField('vehicleAPlate', data.licensePlate, { speed: 40 });
+          // Automatycznie sprawdź polisę po wypełnieniu numeru rejestracyjnego
+          setTimeout(() => {
+            console.log('🔍 Automatyczne sprawdzanie polisy sprawcy po AI...');
+            verifyPolicy();
+          }, 1000); // Opóźnienie 1 sekunda po wypełnieniu pola
+        }
         if (data.make) await streamFillField('vehicleAMake', data.make, { speed: 50 });
         if (data.model) await streamFillField('vehicleAModel', data.model, { speed: 50 });
+        // Aktualizuj podgląd oświadczenia
+        updatePreview();
       } else if (fieldType === 'vehicleB') {
-        if (data.licensePlate) await streamFillField('vehicleBPlate', data.licensePlate, { speed: 40 });
+        if (data.licensePlate) {
+          await streamFillField('vehicleBPlate', data.licensePlate, { speed: 40 });
+          // Automatycznie sprawdź polisę po wypełnieniu numeru rejestracyjnego
+          setTimeout(() => {
+            console.log('🔍 Automatyczne sprawdzanie polisy poszkodowanego po AI...');
+            verifyPolicyB();
+          }, 1000); // Opóźnienie 1 sekunda po wypełnieniu pola
+        }
         if (data.make) await streamFillField('vehicleBMake', data.make, { speed: 50 });
         if (data.model) await streamFillField('vehicleBModel', data.model, { speed: 50 });
+        // Aktualizuj podgląd oświadczenia
+        updatePreview();
       } else if (fieldType === 'damageA') {
         if (data.damageDescription) await streamFillField('damageDescriptionPerpetrator', data.damageDescription, { speed: 15 });
+        // Wypełnij szacunkową wartość szkody sprawcy z AI
+        if (data.estimatedCost) {
+          // Wyciągnij liczbę z tekstu (np. "1500 PLN" -> "1500")
+          const costMatch = data.estimatedCost.match(/(\d+)/);
+          if (costMatch) {
+            await streamFillField('damageValuePerpetrator', costMatch[1], { speed: 20 });
+          }
+        }
         // Przenieś zdjęcia uszkodzeń sprawcy
         if (data.photos && data.photos.length > 0) {
           transferDamagePhotosToField('perpetratorPhotos', data.photos, 'damage_perpetrator');
         }
+        // Aktualizuj podgląd oświadczenia
+        updatePreview();
       } else if (fieldType === 'damageB') {
         if (data.damageDescription) await streamFillField('damageDescriptionVictim', data.damageDescription, { speed: 15 });
+        // Wypełnij szacunkową wartość szkody poszkodowanego z AI
+        if (data.estimatedCost) {
+          // Wyciągnij liczbę z tekstu (np. "1500 PLN" -> "1500")
+          const costMatch = data.estimatedCost.match(/(\d+)/);
+          if (costMatch) {
+            await streamFillField('damageValueVictim', costMatch[1], { speed: 20 });
+          }
+        }
         // Przenieś zdjęcia uszkodzeń poszkodowanego
         if (data.photos && data.photos.length > 0) {
           transferDamagePhotosToField('victimPhotos', data.photos, 'damage_victim');
         }
+        // Aktualizuj podgląd oświadczenia
+        updatePreview();
       }
     }
   }
@@ -1178,6 +1673,8 @@ function transferDamagePhotosToField(fieldId, photos, prefix) {
     
     try {
       console.log(`🤖 Rozpoczynam analizę kroku ${stepNumber} (${stepData.type})`);
+      console.log(`🚨 WIZARD: analyzeStepData called with stepData:`, stepData);
+      console.log(`🚨 WIZARD: stepNumber:`, stepNumber);
       activeAnalyses.add(analysisId);
       
       if (stepData.type === 'location') {
@@ -1941,43 +2438,25 @@ function transferDamagePhotosFromWizard(analysisResults) {
     
     if (!photos || photos.length === 0) {
       container.innerHTML = '<div class="no-photos">Brak zdjęć</div>';
+      // Włącz przycisk gdy brak zdjęć
+      enableFileInput(containerId);
       return;
+    }
+    
+    // Sprawdź czy osiągnięto maksymalną liczbę zdjęć
+    const maxPhotos = getMaxPhotosForContainer(containerId);
+    if (photos.length >= maxPhotos) {
+      // Wygaś przycisk gdy osiągnięto maksimum
+      disableFileInput(containerId);
+    } else {
+      // Włącz przycisk gdy można dodać więcej
+      enableFileInput(containerId);
     }
     
     // Wyświetl wszystkie zdjęcia
     photos.forEach((photo, index) => {
       const photoDiv = document.createElement('div');
       photoDiv.className = 'photo-item';
-      
-      // Ikona zdjęcia
-      const icon = document.createElement('div');
-      icon.className = 'photo-icon';
-      icon.innerHTML = '📷';
-      
-      // Informacje o zdjęciu
-      const info = document.createElement('div');
-      info.className = 'photo-info';
-      
-      const name = document.createElement('div');
-      name.className = 'photo-name';
-      name.textContent = (photo && typeof photo === 'object' && photo.name) || `Photo ${index + 1}`;
-      
-      const size = document.createElement('div');
-      size.className = 'photo-size';
-      // Oblicz rozmiar z dataURL (przybliżony)
-      let dataUrl;
-      if (typeof photo === 'string') {
-        dataUrl = photo;
-      } else if (photo && typeof photo === 'object' && photo.dataUrl) {
-        dataUrl = photo.dataUrl;
-      } else {
-        dataUrl = '';
-      }
-      const sizeKB = dataUrl ? Math.round(dataUrl.length * 0.75 / 1024) : 0;
-      size.textContent = `${sizeKB} KB`;
-      
-      info.appendChild(name);
-      info.appendChild(size);
       
       // Kontener na podgląd z przyciskiem usuwania
       const previewContainer = document.createElement('div');
@@ -2009,22 +2488,95 @@ function transferDamagePhotosFromWizard(analysisResults) {
       preview.className = 'photo-preview';
       preview.alt = (photo && photo.name) || `Photo ${index + 1}`;
       
+      // Dodaj event listener dla kliknięcia w miniaturkę
+      preview.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showImage(imageSrc);
+      });
+      
       // Przycisk usuwania
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'photo-delete-btn';
       deleteBtn.innerHTML = '×';
       deleteBtn.title = 'Usuń zdjęcie';
-      deleteBtn.onclick = () => removePhoto(containerId, index);
+      deleteBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        removePhoto(containerId, index);
+      };
       
       previewContainer.appendChild(preview);
       previewContainer.appendChild(deleteBtn);
       
-      photoDiv.appendChild(icon);
-      photoDiv.appendChild(info);
       photoDiv.appendChild(previewContainer);
       
       container.appendChild(photoDiv);
     });
+  }
+
+  // Funkcja do wyświetlania zdjęć w modalu
+  function showImage(imageSrc) {
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImage');
+    modalImg.src = imageSrc;
+    modal.style.display = 'block';
+  }
+
+  // Funkcja do określenia maksymalnej liczby zdjęć dla kontenera
+  function getMaxPhotosForContainer(containerId) {
+    switch(containerId) {
+      case 'licenseAPreviews':
+      case 'licenseBPreviews':
+        return 2; // Prawo jazdy - przód i tył
+      case 'vehicleAPreviews':
+      case 'vehicleBPreviews':
+        return 2; // Pojazd - przód i tył
+      case 'damageAPreviews':
+      case 'damageBPreviews':
+      case 'victimPhotosPreviews':
+      case 'perpetratorPhotosPreviews':
+        return 5; // Uszkodzenia - max 5 zdjęć
+      default:
+        return 5; // Domyślnie 5 zdjęć
+    }
+  }
+
+  // Funkcja do wygaszenia input file
+  function disableFileInput(containerId) {
+    const inputId = getInputIdFromContainer(containerId);
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.disabled = true;
+      input.style.opacity = '0.5';
+      input.style.cursor = 'not-allowed';
+    }
+  }
+
+  // Funkcja do włączenia input file
+  function enableFileInput(containerId) {
+    const inputId = getInputIdFromContainer(containerId);
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.disabled = false;
+      input.style.opacity = '1';
+      input.style.cursor = 'pointer';
+    }
+  }
+
+  // Funkcja do mapowania containerId na inputId
+  function getInputIdFromContainer(containerId) {
+    switch(containerId) {
+      case 'licenseAPreviews': return 'licenseAFile';
+      case 'licenseBPreviews': return 'licenseBFile';
+      case 'vehicleAPreviews': return 'vehicleAFile';
+      case 'vehicleBPreviews': return 'vehicleBFile';
+      case 'damageAPreviews': return 'damageAFile';
+      case 'damageBPreviews': return 'damageBFile';
+      case 'victimPhotosPreviews': return 'victimPhotos';
+      case 'perpetratorPhotosPreviews': return 'perpetratorPhotos';
+      default: return null;
+    }
   }
 
   // Funkcja do usuwania zdjęcia
@@ -2058,7 +2610,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
     // Usuń zdjęcie z tablicy
     inputField.__dataUrls.splice(index, 1);
     
-    // Odśwież podgląd
+    // Odśwież podgląd (ta funkcja automatycznie włączy przycisk jeśli potrzeba)
     updatePhotoPreviews(containerId, inputField.__dataUrls);
     
     // Jeśli to były zdjęcia uszkodzeń, zaktualizuj również główny formularz
@@ -2182,7 +2734,9 @@ function transferDamagePhotosFromWizard(analysisResults) {
       ``,
       `=== USZKODZENIA ===`,
       `Pojazd poszkodowanego: ${data.damageDescriptionVictim || ''}`,
+      `Szacunkowa wartość szkody poszkodowanego: ${data.damageValueVictim ? data.damageValueVictim + ' PLN' : 'Nie podano'}`,
       `Pojazd sprawcy: ${data.damageDescriptionPerpetrator || ''}`,
+      `Szacunkowa wartość szkody sprawcy: ${data.damageValuePerpetrator ? data.damageValuePerpetrator + ' PLN' : 'Nie podano'}`,
       `Inne: ${data.additionalInfo || ''}`,
       `Zdjęcia poszkodowanego: ${data.victimPhotosDataUrl?.length || 0} zdjęć`,
       `Zdjęcia sprawcy: ${data.perpetratorPhotosDataUrl?.length || 0} zdjęć`,
@@ -2222,7 +2776,9 @@ function transferDamagePhotosFromWizard(analysisResults) {
       vehicleBPlate: fields.vehicleBPlate.value.trim(),
       incidentDetails: fields.incidentDetails.value.trim(),
       damageDescriptionVictim: fields.damageDescriptionVictim.value.trim(),
+      damageValueVictim: fields.damageValueVictim.value.trim(),
       damageDescriptionPerpetrator: fields.damageDescriptionPerpetrator.value.trim(),
+      damageValuePerpetrator: fields.damageValuePerpetrator.value.trim(),
       additionalInfo: fields.additionalInfo.value.trim(),
       // zdjęcia uszkodzeń jako dataURL (opcjonalnie)
       victimPhotosDataUrl: fields.victimPhotos.__dataUrls || [],
@@ -2345,6 +2901,24 @@ function transferDamagePhotosFromWizard(analysisResults) {
     recognition.start();
     startDictationUI();
   });
+
+  // Modal do wyświetlania zdjęć
+  const imageModal = document.getElementById('imageModal');
+  const imageClose = document.querySelector('.image-close');
+  
+  if (imageClose) {
+    imageClose.addEventListener('click', () => {
+      imageModal.style.display = 'none';
+    });
+  }
+  
+  if (imageModal) {
+    imageModal.addEventListener('click', (e) => {
+      if (e.target === imageModal) {
+        imageModal.style.display = 'none';
+      }
+    });
+  }
 
   // QR modal open/close
   // Weryfikacja polisy OC

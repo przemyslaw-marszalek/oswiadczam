@@ -101,6 +101,11 @@ audio { width: 100%; margin-top: 8px; }
 @media (max-width: 768px) {
   .container { padding: 16px; }
   
+  /* Ukryj baner reklamowy na urządzeniach mobilnych */
+  .ad-banner {
+    display: none;
+  }
+  
   .ad-content {
     flex-direction: column;
     gap: 8px;
@@ -554,10 +559,20 @@ audio { width: 100%; margin-top: 8px; }
 }
 
 .upload-previews {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 16px;
+}
+
+/* Ukryj domyślny tekst przeglądarki dla input file ale zachowaj przycisk */
+input[type="file"] {
+  color: transparent;
+}
+
+/* Ukryj tylko tekst "No file chosen" ale zachowaj przycisk */
+input[type="file"]::-webkit-file-upload-button {
+  visibility: visible;
 }
 
 .upload-previews img {
@@ -568,16 +583,14 @@ audio { width: 100%; margin-top: 8px; }
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Style dla elementów zdjęć */
+/* Style dla elementów zdjęć - układ obok siebie */
 .photo-item {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  margin: 8px 0;
-  background-color: #f8f9fa;
-  border: 1px solid #e9ecef;
+  display: inline-block;
+  margin: 4px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: #f9fafb;
+  overflow: hidden;
 }
 
 .photo-icon {
@@ -604,6 +617,13 @@ audio { width: 100%; margin-top: 8px; }
   color: #333;
   margin-bottom: 4px;
   word-break: break-all;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.photo-name:hover {
+  color: #1f2937;
+  text-decoration: underline;
 }
 
 .photo-size {
@@ -612,12 +632,21 @@ audio { width: 100%; margin-top: 8px; }
 }
 
 .photo-preview {
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  flex-shrink: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.photo-preview:hover {
+  transform: scale(1.05);
+}
+
+.photo-preview-container {
+  position: relative;
+  display: inline-block;
 }
 
 .no-photos {
@@ -680,7 +709,7 @@ audio { width: 100%; margin-top: 8px; }
 /* Przyciski wizarda */
 .wizard-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-top: 24px;
   padding-top: 24px;
@@ -903,6 +932,190 @@ audio { width: 100%; margin-top: 8px; }
   justify-content: space-between;
   align-items: center;
   margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fullscreen-signature-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.fullscreen-signature-btn:hover {
+  background: #2563eb;
+}
+
+/* Modal do wyświetlania zdjęć w powiększeniu */
+.image-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.image-content {
+  position: relative;
+  margin: auto;
+  padding: 0;
+  width: 90%;
+  max-width: 1200px;
+  height: 90%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-content img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  background: #fff;
+  padding: 20px;
+}
+
+.image-close {
+  position: absolute;
+  top: 15px;
+  right: 35px;
+  color: #f1f1f1;
+  font-size: 40px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 1001;
+}
+
+.image-close:hover,
+.image-close:focus {
+  color: #bbb;
+  text-decoration: none;
+}
+
+/* Pełnoekranowy modal do podpisywania */
+.fullscreen-signature-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.fullscreen-signature-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+}
+
+.fullscreen-signature-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.fullscreen-signature-header h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.fullscreen-signature-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.fullscreen-clear-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.fullscreen-clear-btn:hover {
+  background: #dc2626;
+}
+
+.fullscreen-save-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.fullscreen-save-btn:hover {
+  background: #059669;
+}
+
+.fullscreen-close-btn {
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullscreen-close-btn:hover {
+  background: #4b5563;
+}
+
+.fullscreen-signature-canvas {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: white;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.fullscreen-signature-instructions {
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.fullscreen-signature-instructions p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
 .clear-signature-btn {

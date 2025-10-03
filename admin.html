@@ -6,24 +6,62 @@
     <title>Admin – Oświadczenia</title>
     <link rel="stylesheet" href="/style.css">
     <style>
-      .admin-container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+      .admin-container { max-width: 1200px; margin: 0 auto; padding: 24px; }
       table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
       th, td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 14px; }
       th { background: #f3f4f6; font-weight: 600; }
       tr:last-child td { border-bottom: none; }
-      .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+      .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
       .pill { padding: 6px 10px; background: #111827; color: #fff; border-radius: 999px; font-size: 12px; }
       .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
       .empty { padding: 16px; background: #fff; border: 1px dashed #e5e7eb; border-radius: 8px; }
+      
+      /* Pagination */
+      .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; }
+      .pagination-controls { display: flex; gap: 8px; align-items: center; }
+      .pagination-info { font-size: 14px; color: #6b7280; }
+      .pagination-btn { padding: 6px 12px; border: 1px solid #374151; background: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; color: #374151; font-weight: 500; }
+      .pagination-btn:hover:not(:disabled) { background: #f3f4f6; border-color: #1f2937; }
+      .pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; color: #9ca3af; border-color: #d1d5db; }
+      .pagination-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; font-weight: 600; }
+      .page-size-selector { display: flex; align-items: center; gap: 8px; }
+      .page-size-selector select { padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; }
+      
+      /* Details modal */
+      .details-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+      .details-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 90%; max-height: 90%; background: #fff; border-radius: 8px; padding: 24px; overflow-y: auto; }
+      .details-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; }
+      .details-close { font-size: 24px; cursor: pointer; color: #6b7280; }
+      .details-section { margin-bottom: 24px; }
+      .details-section h3 { margin-bottom: 12px; color: #374151; font-size: 16px; }
+      .details-section.separated { border-top: 2px solid #e5e7eb; padding-top: 20px; margin-top: 20px; }
+      .details-section.separated h3 { color: #1f2937; font-weight: 700; border-bottom: 1px solid #d1d5db; padding-bottom: 8px; }
+      .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .details-item { padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+      .details-label { font-weight: 600; color: #374151; margin-bottom: 4px; }
+      .details-value { color: #6b7280; }
+      
+      /* Photo gallery */
       .photo-gallery { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-      .photo-item { width: 60px; height: 60px; border-radius: 4px; object-fit: cover; border: 1px solid #e5e7eb; cursor: pointer; }
+      .photo-item { width: 80px; height: 80px; border-radius: 4px; object-fit: cover; border: 1px solid #e5e7eb; cursor: pointer; }
       .photo-item:hover { border-color: #3b82f6; }
-      .signature-preview { width: 80px; height: 30px; border: 1px solid #e5e7eb; border-radius: 4px; cursor: pointer; }
+      .signature-preview { width: 120px; height: 50px; border: 1px solid #e5e7eb; border-radius: 4px; cursor: pointer; }
       .signature-preview:hover { border-color: #3b82f6; }
-      .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
-      .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 90%; max-height: 90%; }
-      .modal img { max-width: 100%; max-height: 100%; border-radius: 8px; }
-      .modal-close { position: absolute; top: 10px; right: 20px; color: white; font-size: 30px; cursor: pointer; }
+      
+      /* Image modal */
+      .image-modal { display: none; position: fixed; z-index: 1001; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }
+      .image-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 95%; max-height: 95%; }
+      .image-modal img { max-width: 100%; max-height: 100%; border-radius: 8px; background: #fff; padding: 20px; }
+      .image-close { position: absolute; top: 10px; right: 20px; color: white; font-size: 30px; cursor: pointer; }
+      
+      /* Action buttons */
+      .action-btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin-right: 8px; }
+      .btn-primary { background: #3b82f6; color: #fff; }
+      .btn-primary:hover { background: #2563eb; }
+      .btn-secondary { background: #6b7280; color: #fff; }
+      .btn-secondary:hover { background: #4b5563; }
+      .btn-success { background: #10b981; color: #fff; }
+      .btn-success:hover { background: #059669; }
     </style>
   </head>
   <body>
@@ -31,28 +69,62 @@
       <div class="toolbar">
         <a href="/" class="pill">← Powrót do aplikacji</a>
         <div id="count" class="pill">0 zapisanych</div>
+        <div class="page-size-selector">
+          <label for="pageSize">Na stronie:</label>
+          <select id="pageSize">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
         <button id="refreshBtn">Odśwież</button>
       </div>
       <h1>Panel administracyjny – zapisane oświadczenia</h1>
       <div id="content"></div>
+      <div id="pagination"></div>
       <div id="adminError" class="empty" style="display:none;color:#7f1d1d;background:#fee2e2;border-color:#fecaca;">Błąd pobierania danych.</div>
     </div>
 
+    <!-- Modal szczegółów oświadczenia -->
+    <div id="detailsModal" class="details-modal">
+      <div class="details-content">
+        <div class="details-header">
+          <h2>Szczegóły oświadczenia</h2>
+          <span class="details-close">&times;</span>
+        </div>
+        <div id="detailsContent"></div>
+      </div>
+    </div>
+
     <!-- Modal do wyświetlania zdjęć -->
-    <div id="imageModal" class="modal">
-      <div class="modal-content">
-        <span class="modal-close">&times;</span>
+    <div id="imageModal" class="image-modal">
+      <div class="image-content">
+        <span class="image-close">&times;</span>
         <img id="modalImage" src="" alt="">
       </div>
     </div>
 
     <script>
+      // Globalne zmienne dla stronnicowania
+      let allStatements = [];
+      let currentPage = 1;
+      let pageSize = 25;
+      let totalPages = 1;
+
       async function fetchStatements() {
         try {
           const resp = await fetch('/api/statement', { cache: 'no-store' });
           const data = await resp.json();
           if (!data.ok) throw new Error('API error');
-          return data.items || [];
+          const items = data.items || [];
+          
+          // Sortuj po dacie zapisu od najnowszych
+          return items.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA; // Od najnowszych do najstarszych
+          });
         } catch (e) {
           console.error('Failed to fetch statements', e);
           return [];
@@ -62,65 +134,28 @@
       function renderTable(items) {
         const content = document.getElementById('content');
         const count = document.getElementById('count');
-        count.textContent = `${items.length} zapisanych`;
+        count.textContent = `${allStatements.length} zapisanych`;
+        
         if (!items.length) {
           content.innerHTML = `<div class="empty">Brak zapisanych oświadczeń.</div>`;
           return;
         }
+
         const rows = items.map((it) => {
           const when = new Date(it.createdAt || Date.now()).toLocaleString();
           const a = `${it.driverAName || ''} / ${it.vehicleAPlate || ''}`;
           const b = `${it.driverBName || ''} / ${it.vehicleBPlate || ''}`;
           const loc = it.location || '';
           const id = it.id || '';
-          const pdfUrl = `/api/statement/${id}/pdf`;
-          
-          // Zdjęcia sprawcy
-          const victimPhotos = it.victimPhotosDataUrl || [];
-          const perpetratorPhotos = it.perpetratorPhotosDataUrl || [];
-          
-          // Podpisy
-          const driverASignature = it.driverASignature || '';
-          const driverBSignature = it.driverBSignature || '';
-          
-          const photosHtml = `
-            <div style="margin-bottom: 8px;">
-              <strong>Poszkodowany:</strong>
-              <div class="photo-gallery">
-                ${victimPhotos.map(photo => `<img src="${photo.dataUrl}" alt="Zdjęcie" class="photo-item" onclick="showImage('${photo.dataUrl}')">`).join('')}
-                ${victimPhotos.length === 0 ? '<span style="color: #6b7280; font-size: 12px;">Brak zdjęć</span>' : ''}
-              </div>
-            </div>
-            <div>
-              <strong>Sprawca:</strong>
-              <div class="photo-gallery">
-                ${perpetratorPhotos.map(photo => `<img src="${photo.dataUrl}" alt="Zdjęcie" class="photo-item" onclick="showImage('${photo.dataUrl}')">`).join('')}
-                ${perpetratorPhotos.length === 0 ? '<span style="color: #6b7280; font-size: 12px;">Brak zdjęć</span>' : ''}
-              </div>
-            </div>
-          `;
-          
-          const signaturesHtml = `
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-              <div>
-                <strong>Sprawca:</strong><br>
-                ${driverASignature ? `<img src="${driverASignature}" alt="Podpis sprawcy" class="signature-preview" onclick="showImage('${driverASignature}')">` : '<span style="color: #6b7280; font-size: 12px;">Brak podpisu</span>'}
-              </div>
-              <div>
-                <strong>Poszkodowany:</strong><br>
-                ${driverBSignature ? `<img src="${driverBSignature}" alt="Podpis poszkodowanego" class="signature-preview" onclick="showImage('${driverBSignature}')">` : '<span style="color: #6b7280; font-size: 12px;">Brak podpisu</span>'}
-              </div>
-            </div>
-          `;
           
           return `<tr>
             <td class="mono">${when}</td>
             <td>${a}</td>
             <td>${b}</td>
             <td>${loc}</td>
-            <td class="mono">${id}<br><a href="${pdfUrl}" target="_blank">PDF</a></td>
-            <td style="max-width: 200px;">${photosHtml}</td>
-            <td style="max-width: 150px;">${signaturesHtml}</td>
+            <td>
+              <button class="action-btn btn-primary" onclick="showDetails('${id}')">Szczegóły</button>
+            </td>
           </tr>`;
         }).join('');
 
@@ -132,9 +167,7 @@
                 <th>Sprawca</th>
                 <th>Poszkodowany</th>
                 <th>Miejsce</th>
-                <th>ID / PDF</th>
-                <th>Zdjęcia</th>
-                <th>Podpisy</th>
+                <th>Akcje</th>
               </tr>
             </thead>
             <tbody>
@@ -142,6 +175,256 @@
             </tbody>
           </table>
         `;
+      }
+
+      function renderPagination() {
+        const pagination = document.getElementById('pagination');
+        if (totalPages <= 1) {
+          pagination.innerHTML = '';
+          return;
+        }
+
+        const startItem = (currentPage - 1) * pageSize + 1;
+        const endItem = Math.min(currentPage * pageSize, allStatements.length);
+
+        let paginationHtml = `
+          <div class="pagination">
+            <div class="pagination-info">
+              Wyświetlanie ${startItem}-${endItem} z ${allStatements.length} oświadczeń
+            </div>
+            <div class="pagination-controls">
+              <button class="pagination-btn" onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}>«</button>
+              <button class="pagination-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>
+        `;
+
+        // Wyświetl maksymalnie 5 stron
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+          paginationHtml += `<button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        }
+
+        paginationHtml += `
+              <button class="pagination-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>›</button>
+              <button class="pagination-btn" onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>»</button>
+            </div>
+          </div>
+        `;
+
+        pagination.innerHTML = paginationHtml;
+      }
+
+      function goToPage(page) {
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        updateDisplay();
+      }
+
+      function updatePageSize() {
+        pageSize = parseInt(document.getElementById('pageSize').value);
+        currentPage = 1;
+        updateDisplay();
+      }
+
+      function updateDisplay() {
+        totalPages = Math.ceil(allStatements.length / pageSize);
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const currentItems = allStatements.slice(startIndex, endIndex);
+        
+        renderTable(currentItems);
+        renderPagination();
+      }
+
+      function showDetails(statementId) {
+        const statement = allStatements.find(s => s.id === statementId);
+        if (!statement) return;
+
+        const detailsContent = document.getElementById('detailsContent');
+        
+        // Zdjęcia sprawcy i poszkodowanego
+        const victimPhotos = statement.victimPhotosDataUrl || [];
+        const perpetratorPhotos = statement.perpetratorPhotosDataUrl || [];
+        
+        // Podpisy
+        const driverASignature = statement.driverASignature || '';
+        const driverBSignature = statement.driverBSignature || '';
+
+        detailsContent.innerHTML = `
+          <div class="details-section">
+            <h3>Podstawowe informacje</h3>
+            <div class="details-grid">
+              <div class="details-item">
+                <div class="details-label">Data i miejsce zdarzenia</div>
+                <div class="details-value">${statement.datetime || ''} - ${statement.location || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">ID oświadczenia</div>
+                <div class="details-value">${statement.id || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Data zapisu</div>
+                <div class="details-value">${new Date(statement.createdAt || Date.now()).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="details-section separated">
+            <h3>Dane sprawcy</h3>
+            <div class="details-grid">
+              <div class="details-item">
+                <div class="details-label">Imię i nazwisko</div>
+                <div class="details-value">${statement.driverAName || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Adres</div>
+                <div class="details-value">${statement.driverAAddress || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Prawo jazdy</div>
+                <div class="details-value">Kat. ${statement.driverALicenseCategory || ''} nr ${statement.driverALicenseNumber || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Wydane przez</div>
+                <div class="details-value">${statement.driverALicenseIssuer || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Pojazd</div>
+                <div class="details-value">${statement.vehicleAMake || ''} ${statement.vehicleAPlate || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Właściciel pojazdu</div>
+                <div class="details-value">${statement.vehicleAOwner || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Polisa OC</div>
+                <div class="details-value">${statement.driverAPolicyInfo || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Ważna do</div>
+                <div class="details-value">${statement.driverAPolicyValidUntil || ''}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="details-section separated">
+            <h3>Dane poszkodowanego</h3>
+            <div class="details-grid">
+              <div class="details-item">
+                <div class="details-label">Imię i nazwisko</div>
+                <div class="details-value">${statement.driverBName || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Adres</div>
+                <div class="details-value">${statement.driverBAddress || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Prawo jazdy</div>
+                <div class="details-value">Kat. ${statement.driverBLicenseCategory || ''} nr ${statement.driverBLicenseNumber || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Wydane przez</div>
+                <div class="details-value">${statement.driverBLicenseIssuer || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Pojazd</div>
+                <div class="details-value">${statement.vehicleBMake || ''} ${statement.vehicleBPlate || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Właściciel pojazdu</div>
+                <div class="details-value">${statement.vehicleBOwner || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Polisa OC</div>
+                <div class="details-value">${statement.driverBPolicyInfo || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Ważna do</div>
+                <div class="details-value">${statement.driverBPolicyValidUntil || ''}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="details-section">
+            <h3>Okoliczności zdarzenia</h3>
+            <div class="details-item">
+              <div class="details-value">${statement.incidentDetails || ''}</div>
+            </div>
+          </div>
+
+          <div class="details-section">
+            <h3>Opis uszkodzeń</h3>
+            <div class="details-grid">
+              <div class="details-item">
+                <div class="details-label">Uszkodzenia sprawcy</div>
+                <div class="details-value">${statement.damageDescriptionPerpetrator || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Szacunkowa wartość szkody sprawcy</div>
+                <div class="details-value">${statement.damageValuePerpetrator ? statement.damageValuePerpetrator + ' PLN' : 'Nie podano'}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Uszkodzenia poszkodowanego</div>
+                <div class="details-value">${statement.damageDescriptionVictim || ''}</div>
+              </div>
+              <div class="details-item">
+                <div class="details-label">Szacunkowa wartość szkody poszkodowanego</div>
+                <div class="details-value">${statement.damageValueVictim ? statement.damageValueVictim + ' PLN' : 'Nie podano'}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="details-section">
+            <h3>Zdjęcia uszkodzeń</h3>
+            <div style="margin-bottom: 16px;">
+              <div class="details-label">Poszkodowany (${victimPhotos.length} zdjęć)</div>
+              <div class="photo-gallery">
+                ${victimPhotos.map(photo => `<img src="${photo.dataUrl}" alt="Zdjęcie" class="photo-item" onclick="showImage('${photo.dataUrl}')">`).join('')}
+                ${victimPhotos.length === 0 ? '<span style="color: #6b7280;">Brak zdjęć</span>' : ''}
+              </div>
+            </div>
+            <div>
+              <div class="details-label">Sprawca (${perpetratorPhotos.length} zdjęć)</div>
+              <div class="photo-gallery">
+                ${perpetratorPhotos.map(photo => `<img src="${photo.dataUrl}" alt="Zdjęcie" class="photo-item" onclick="showImage('${photo.dataUrl}')">`).join('')}
+                ${perpetratorPhotos.length === 0 ? '<span style="color: #6b7280;">Brak zdjęć</span>' : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="details-section">
+            <h3>Podpisy</h3>
+            <div style="display: flex; gap: 24px;">
+              <div>
+                <div class="details-label">Podpis sprawcy</div>
+                ${driverASignature ? `<img src="${driverASignature}" alt="Podpis sprawcy" class="signature-preview" onclick="showImage('${driverASignature}')">` : '<span style="color: #6b7280;">Brak podpisu</span>'}
+              </div>
+              <div>
+                <div class="details-label">Podpis poszkodowanego</div>
+                ${driverBSignature ? `<img src="${driverBSignature}" alt="Podpis poszkodowanego" class="signature-preview" onclick="showImage('${driverBSignature}')">` : '<span style="color: #6b7280;">Brak podpisu</span>'}
+              </div>
+            </div>
+          </div>
+
+          <div class="details-section">
+            <h3>Akcje</h3>
+            <div>
+              <a href="/api/statement/${statement.id}/pdf" target="_blank" class="action-btn btn-primary">Pobierz PDF</a>
+              <button class="action-btn btn-success" onclick="reportToInsurance('${statement.id}')">Zgłoś sprawę do OC</button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('detailsModal').style.display = 'block';
+      }
+
+      function reportToInsurance(statementId) {
+        const statement = allStatements.find(s => s.id === statementId);
+        if (!statement) return;
+
+        // TODO: W przyszłości będzie to wysyłać email do ubezpieczyciela
+        alert(`Funkcja "Zgłoś sprawę do OC" będzie dostępna wkrótce.\n\nSprawca: ${statement.driverAName}\nPoszkodowany: ${statement.driverBName}\nMiejsce: ${statement.location}\n\nEmail zostanie wysłany do ubezpieczyciela sprawcy wraz z oświadczeniem i zdjęciami uszkodzeń.`);
       }
 
       // Funkcja do wyświetlania zdjęć w modalu
@@ -152,28 +435,36 @@
         modal.style.display = 'block';
       }
 
-      // Zamknij modal
+      // Zamknij modale
       document.addEventListener('click', function(e) {
-        const modal = document.getElementById('imageModal');
-        const closeBtn = document.querySelector('.modal-close');
-        if (e.target === modal || e.target === closeBtn) {
-          modal.style.display = 'none';
+        const imageModal = document.getElementById('imageModal');
+        const detailsModal = document.getElementById('detailsModal');
+        const imageCloseBtn = document.querySelector('.image-close');
+        const detailsCloseBtn = document.querySelector('.details-close');
+        
+        if (e.target === imageModal || e.target === imageCloseBtn) {
+          imageModal.style.display = 'none';
+        }
+        
+        if (e.target === detailsModal || e.target === detailsCloseBtn) {
+          detailsModal.style.display = 'none';
         }
       });
 
       (async function init(){
         await refresh();
-        // Prosty auto-refresh co 10s
-        setInterval(refresh, 10000);
+        // Prosty auto-refresh co 30s
+        setInterval(refresh, 30000);
         document.getElementById('refreshBtn').addEventListener('click', refresh);
+        document.getElementById('pageSize').addEventListener('change', updatePageSize);
       })();
 
       async function refresh(){
         const err = document.getElementById('adminError');
         err.style.display = 'none';
-        const items = await fetchStatements();
-        renderTable(items);
-        if (!items) err.style.display = 'block';
+        allStatements = await fetchStatements();
+        updateDisplay();
+        if (!allStatements) err.style.display = 'block';
       }
     </script>
   </body>

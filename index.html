@@ -3,8 +3,73 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Oświadczenie powypadkowe – PoC</title>
-    <link rel="stylesheet" href="/style.css">
+  <title>Oświadczenie powypadkowe – PoC</title>
+  <link rel="stylesheet" href="/style.css">
+  
+  <!-- Debug console for mobile -->
+  <script>
+    // Dodaj debug console dla urządzeń mobilnych
+    if (window.location.search.includes('debug=1') || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      document.addEventListener('DOMContentLoaded', function() {
+        // Stwórz prostą konsolę debug
+        const debugConsole = document.createElement('div');
+        debugConsole.id = 'debug-console';
+        debugConsole.style.cssText = `
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          width: 300px;
+          max-height: 400px;
+          background: rgba(0,0,0,0.8);
+          color: white;
+          font-family: monospace;
+          font-size: 12px;
+          padding: 10px;
+          border-radius: 5px;
+          z-index: 10000;
+          overflow-y: auto;
+          display: none;
+        `;
+        document.body.appendChild(debugConsole);
+        
+        // Przycisk toggle
+        const debugBtn = document.createElement('button');
+        debugBtn.textContent = 'DEBUG';
+        debugBtn.style.cssText = `
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          background: #007bff;
+          color: white;
+          border: none;
+          padding: 10px;
+          border-radius: 5px;
+          z-index: 10001;
+          font-size: 12px;
+        `;
+        debugBtn.onclick = () => {
+          debugConsole.style.display = debugConsole.style.display === 'none' ? 'block' : 'none';
+        };
+        document.body.appendChild(debugBtn);
+        
+        // Override console.log
+        const originalLog = console.log;
+        console.log = function(...args) {
+          originalLog.apply(console, args);
+          const debugDiv = document.getElementById('debug-console');
+          if (debugDiv) {
+            const logEntry = document.createElement('div');
+            logEntry.textContent = args.join(' ');
+            logEntry.style.marginBottom = '5px';
+            debugDiv.appendChild(logEntry);
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+          }
+        };
+        
+        console.log('🔧 Debug console enabled for mobile');
+      });
+    }
+  </script>
     <style>
       .photo-item {
         display: flex !important;
@@ -181,22 +246,8 @@
               </div>
             </div>
 
-            <!-- Krok 3: Pojazd sprawcy - przód i tył -->
+            <!-- Krok 3: Pojazd poszkodowanego - przód i tył -->
             <div id="wizardStep3" class="wizard-step">
-              <h3>🚗 Pojazd sprawcy</h3>
-              <p>Zdjęcia pojazdu sprawcy z przodu i z tyłu z widocznymi tablicami rejestracyjnymi</p>
-              <div class="photo-upload-area" id="vehicleAUpload">
-                <input type="file" id="vehicleAFile" accept="image/*" capture="environment" multiple>
-                <div class="upload-placeholder">
-                  <span class="upload-icon">📷</span>
-                  <span class="upload-text">Kliknij aby zrobić zdjęcia (przód i tył z tablicami)</span>
-                </div>
-                <div id="vehicleAPreviews" class="upload-previews"></div>
-              </div>
-            </div>
-
-            <!-- Krok 4: Pojazd poszkodowanego - przód i tył -->
-            <div id="wizardStep4" class="wizard-step">
               <h3>🚗 Pojazd poszkodowanego</h3>
               <p>Zdjęcia pojazdu poszkodowanego z przodu i z tyłu z widocznymi tablicami rejestracyjnymi</p>
               <div class="photo-upload-area" id="vehicleBUpload">
@@ -206,6 +257,20 @@
                   <span class="upload-text">Kliknij aby zrobić zdjęcia (przód i tył z tablicami)</span>
                 </div>
                 <div id="vehicleBPreviews" class="upload-previews"></div>
+              </div>
+            </div>
+
+            <!-- Krok 4: Pojazd sprawcy - przód i tył -->
+            <div id="wizardStep4" class="wizard-step">
+              <h3>🚗 Pojazd sprawcy</h3>
+              <p>Zdjęcia pojazdu sprawcy z przodu i z tyłu z widocznymi tablicami rejestracyjnymi</p>
+              <div class="photo-upload-area" id="vehicleAUpload">
+                <input type="file" id="vehicleAFile" accept="image/*" capture="environment" multiple>
+                <div class="upload-placeholder">
+                  <span class="upload-icon">📷</span>
+                  <span class="upload-text">Kliknij aby zrobić zdjęcia (przód i tył z tablicami)</span>
+                </div>
+                <div id="vehicleAPreviews" class="upload-previews"></div>
               </div>
             </div>
 
@@ -267,7 +332,7 @@
           </div>
           
           <div class="wizard-actions">
-            <button type="button" id="wizardPrevBtn" class="wizard-btn prev-btn" disabled>← Poprzedni</button>
+            <button type="button" id="wizardPrevBtn" class="wizard-btn prev-btn hidden" disabled>← Poprzedni</button>
             <button type="button" id="wizardNextBtn" class="wizard-btn next-btn">Następny →</button>
             <button type="button" id="wizardFinishBtn" class="wizard-btn finish-btn hidden">✅ Zakończ i wypełnij formularz</button>
           </div>
@@ -326,13 +391,13 @@
         <form class="card">
           <h2>Dane poszkodowanego</h2>
           <label>Imię i nazwisko poszkodowanego
-            <input type="text" id="driverBName" placeholder="">
+            <input type="text" id="driverBName" placeholder="np. Jan Kowalski">
           </label>
           <label>Adres zamieszkania poszkodowanego
             <input type="text" id="driverBAddress" placeholder="ulica, miasto">
           </label>
           <label>E-mail poszkodowanego
-            <input type="email" id="driverBEmail" placeholder="">
+            <input type="email" id="driverBEmail" placeholder="np. jan.kowalski@email.com">
           </label>
           <label>Prawo jazdy poszkodowanego (kategoria)
             <input type="text" id="driverBLicenseCategory" placeholder="np. B">
@@ -400,6 +465,9 @@
                   <label>Opis uszkodzeń pojazdu poszkodowanego
                     <textarea id="damageDescriptionVictim" rows="3" placeholder=""></textarea>
                   </label>
+                  <label>Szacunkowa wartość szkody pojazdu poszkodowanego (PLN)
+                    <input type="number" id="damageValueVictim" placeholder="np. 5000" min="0" step="100">
+                  </label>
                   <label>Zdjęcia uszkodzeń pojazdu poszkodowanego (max. 5 zdjęć)
                     <input type="file" id="victimPhotos" accept="image/*" multiple>
                     <div class="photo-info">Możesz wybrać maksymalnie 5 zdjęć</div>
@@ -407,6 +475,9 @@
                   </label>
                   <label>Opis uszkodzeń pojazdu sprawcy
                     <textarea id="damageDescriptionPerpetrator" rows="3" placeholder=""></textarea>
+                  </label>
+                  <label>Szacunkowa wartość szkody pojazdu sprawcy (PLN)
+                    <input type="number" id="damageValuePerpetrator" placeholder="np. 3000" min="0" step="100">
                   </label>
                   <label>Zdjęcia uszkodzeń pojazdu sprawcy (max. 5 zdjęć)
                     <input type="file" id="perpetratorPhotos" accept="image/*" multiple>
@@ -429,6 +500,7 @@
             <canvas id="driverASignature" width="400" height="150" class="signature-canvas"></canvas>
             <div class="signature-actions">
               <button type="button" id="clearDriverASignature" class="clear-signature-btn">Wyczyść podpis</button>
+              <button type="button" id="fullscreenDriverASignature" class="fullscreen-signature-btn">Złóż podpis</button>
               <span id="driverASignatureStatus" class="signature-status">Nie podpisano</span>
             </div>
           </div>
@@ -438,6 +510,7 @@
             <canvas id="driverBSignature" width="400" height="150" class="signature-canvas"></canvas>
             <div class="signature-actions">
               <button type="button" id="clearDriverBSignature" class="clear-signature-btn">Wyczyść podpis</button>
+              <button type="button" id="fullscreenDriverBSignature" class="fullscreen-signature-btn">Złóż podpis</button>
               <span id="driverBSignatureStatus" class="signature-status">Nie podpisano</span>
             </div>
           </div>
@@ -518,7 +591,33 @@
     <!-- jsPDF for PDF export -->
     <script src="/node_modules/jspdf/dist/jspdf.umd.min.js"></script>
     <script src="/main.js"></script>
+    <!-- Modal do wyświetlania zdjęć w powiększeniu -->
+  <div id="imageModal" class="image-modal">
+    <div class="image-content">
+      <span class="image-close">&times;</span>
+      <img id="modalImage" src="" alt="Powiększone zdjęcie">
+    </div>
+  </div>
+
+  <!-- Pełnoekranowy modal do podpisywania -->
+    <div id="fullscreenSignatureModal" class="fullscreen-signature-modal">
+      <div class="fullscreen-signature-content">
+        <div class="fullscreen-signature-header">
+          <h3 id="fullscreenSignatureTitle">Złóż podpis</h3>
+          <div class="fullscreen-signature-actions">
+            <button type="button" id="fullscreenClearSignature" class="fullscreen-clear-btn">Wyczyść</button>
+            <button type="button" id="fullscreenSaveSignature" class="fullscreen-save-btn">Zapisz podpis</button>
+            <button type="button" id="fullscreenCloseSignature" class="fullscreen-close-btn">✕</button>
+          </div>
+        </div>
+        <canvas id="fullscreenSignatureCanvas" class="fullscreen-signature-canvas"></canvas>
+        <div class="fullscreen-signature-instructions">
+          <p>Podpisz się palcem lub myszką. Po zakończeniu kliknij "Zapisz podpis".</p>
+        </div>
+      </div>
+    </div>
+
   </body>
-  </html>
+</html>
 
 

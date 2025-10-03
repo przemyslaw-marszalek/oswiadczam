@@ -44,8 +44,8 @@ const memoryStore = {
   statements: loadStatements(dataFile), // lista złożonych oświadczeń
 };
 
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 // Upload audio (multipart) – do transkrypcji po stronie serwera
 const upload = multer({ limits: { fileSize: 25 * 1024 * 1024 } });
 
@@ -283,55 +283,38 @@ app.post('/api/ai/analyze-image', async (req, res) => {
         
         // Połącz wyniki - pierwszy obraz ma priorytet dla podstawowych danych
         geminiResult = results[0] || {};
-        for (let i = 1; i < results.length; i++) {
-          const result = results[i];
-          
-          if (analysisType === 'license') {
-            // Dla prawa jazdy uzupełnij brakujące dane
-            Object.keys(result).forEach(key => {
-              if (geminiResult[key] === null || geminiResult[key] === undefined || geminiResult[key] === '') {
-                geminiResult[key] = result[key];
-              }
-            });
-          } else if (analysisType === 'damage') {
-            // Dla uszkodzeń połącz opisy i listy części
-            if (result.damageDescription && geminiResult.damageDescription) {
-              // Połącz opisy uszkodzeń
-              geminiResult.damageDescription += ' ' + result.damageDescription;
-            } else if (result.damageDescription && !geminiResult.damageDescription) {
-              geminiResult.damageDescription = result.damageDescription;
+        
+        // Jeśli pierwszy obraz nie dał wyników, spróbuj z kolejnymi
+        if (Object.keys(geminiResult).length === 0 && results.length > 1) {
+          for (let i = 1; i < results.length; i++) {
+            if (results[i] && Object.keys(results[i]).length > 0) {
+              geminiResult = results[i];
+              break;
             }
-            
-            if (result.affectedParts && Array.isArray(result.affectedParts)) {
-              if (!geminiResult.affectedParts) {
-                geminiResult.affectedParts = [];
-              }
-              // Dodaj nowe części, unikając duplikatów
-              result.affectedParts.forEach(part => {
-                if (!geminiResult.affectedParts.includes(part)) {
-                  geminiResult.affectedParts.push(part);
+          }
+        }
+        
+        // Połącz dane z wszystkich obrazów (dla prawa jazdy - front i tył)
+        if (analysisType === 'license' && results.length > 1) {
+          for (let i = 1; i < results.length; i++) {
+            if (results[i]) {
+              // Połącz dane, preferując nie-null wartości
+              Object.keys(results[i]).forEach(key => {
+                if (results[i][key] !== null && results[i][key] !== undefined && 
+                    (geminiResult[key] === null || geminiResult[key] === undefined)) {
+                  geminiResult[key] = results[i][key];
                 }
               });
-            }
-            
-            // Użyj najwyższej oceny ważności
-            if (result.severity && geminiResult.severity) {
-              const severityOrder = { 'lekki': 1, 'średni': 2, 'ciężki': 3 };
-              if (severityOrder[result.severity] > severityOrder[geminiResult.severity]) {
-                geminiResult.severity = result.severity;
-              }
-            } else if (result.severity && !geminiResult.severity) {
-              geminiResult.severity = result.severity;
-            }
-            
-            // Uzupełnij brakujące koszty
-            if (result.estimatedCost && !geminiResult.estimatedCost) {
-              geminiResult.estimatedCost = result.estimatedCost;
             }
           }
         }
         
         console.log(`[AI] Połączone wyniki z ${results.length} obrazów:`, geminiResult);
+        
+        // Sprawdź czy mamy jakiekolwiek wyniki
+        if (Object.keys(geminiResult).length === 0) {
+          console.log(`[AI] ⚠️ Brak wyników z Gemini API dla ${analysisType} - wszystkie obrazy zwróciły null`);
+        }
       } else {
         // Dla innych typów analizuj tylko pierwszy obraz
         const imageBase64 = imagesToProcess[0];
@@ -659,10 +642,15 @@ async function generatePDFBuffer(item) {
     // Wyciągnij miejscowość używając AI
     extractCityWithAI(location).then(cityOnly => {
       doc.fontSize(12).font(fontName).text(`${cityOnly}, ${dateOnly}`, { align: 'right' });
+      doc.moveDown(3); // Dodano 2 dodatkowe linie (było 1, teraz 3)
+      
+      // Pusta linia przed tytułem
       doc.moveDown(1);
       
       doc.fontSize(16).font(boldFontName).text('OŚWIADCZENIE SPRAWCY KOLIZJI DROGOWEJ', { align: 'center' });
-      doc.moveDown(1);
+      
+      // Pusta linia po tytule
+      doc.moveDown(2);
       
       doc.fontSize(12).font(boldFontName).text('Data i miejsce zdarzenia:');
       doc.font(fontName).text(`${item.datetime || ''} - ${item.location || ''}`);
@@ -706,9 +694,22 @@ async function generatePDFBuffer(item) {
       doc.font(fontName).text(item.damageDescriptionPerpetrator || '................................');
       doc.moveDown(0.5);
       
-      doc.font(boldFontName).text('Inne uszkodzenia/informacje:');
+      // Dodatkowe informacje
+      doc.font(boldFontName).text('Dodatkowe informacje:');
       doc.font(fontName).text(item.additionalInfo || '................................');
-      doc.moveDown(1);
+      doc.moveDown(0.5);
+      
+      // Informacje o polisach
+      if (item.driverAPolicyInfo || item.driverBPolicyInfo) {
+        doc.font(boldFontName).text('Informacje o ubezpieczeniach:');
+        if (item.driverAPolicyInfo) {
+          doc.font(fontName).text(`Sprawca: ${item.driverAPolicyInfo}`);
+        }
+        if (item.driverBPolicyInfo) {
+          doc.font(fontName).text(`Poszkodowany: ${item.driverBPolicyInfo}`);
+        }
+        doc.moveDown(0.5);
+      }
       
       // Podpisy elektroniczne - zawsze w tej samej linii poziomej
       doc.moveDown(1);
@@ -718,10 +719,17 @@ async function generatePDFBuffer(item) {
       const signatureTextHeight = 20;
       const totalSignatureHeight = signatureHeight + signatureTextHeight + 20; // margines
       
-      // Jeśli nie ma miejsca na podpisy, przejdź do nowej strony
+      // Jeśli nie ma miejsca na podpisy, przenieś część tekstu na drugą stronę
       if (doc.y + totalSignatureHeight > doc.page.height - 50) {
+        console.log(`[PDF] Not enough space for signatures. Moving to page 2.`);
+        
+        // Przenieś część tekstu na drugą stronę
         doc.addPage();
-        console.log(`[PDF] Moved to new page for signatures. New Y: ${doc.y}`);
+        
+        // Sekcje "Dodatkowe informacje" i "Informacje o ubezpieczeniach" 
+        // są już dodane na pierwszej stronie przed podpisami
+        
+        console.log(`[PDF] Added content to page 2. New Y: ${doc.y}`);
       }
       
       // Ustaw stałą pozycję Y dla podpisów - oblicz ją dokładnie
@@ -750,19 +758,26 @@ async function generatePDFBuffer(item) {
         try {
           const signatureBuffer = Buffer.from(item.driverBSignature.split(',')[1], 'base64');
           doc.image(signatureBuffer, 300, signatureY, { width: 150, height: signatureHeight });
-          doc.text('podpis poszkodowanego', 300, signatureY + signatureHeight + 10);
+          
+          // Podpis poszkodowanego w 2 liniach z wysrodkowaniem
+          const textY = signatureY + signatureHeight + 10;
+          doc.text('podpis poszkodowanego', 300, textY);
+          doc.text('lub kierującego pojazdem poszkodowanego', 300, textY + 12);
+          
           console.log(`[PDF] Poszkodowany signature placed at Y=${signatureY}`);
         } catch (e) {
           console.error('[PDF] Error placing poszkodowany signature:', e);
+          
+          // Podpis poszkodowanego w 2 liniach z wysrodkowaniem (bez podpisu)
           doc.text('podpis poszkodowanego', 300, signatureY);
+          doc.text('lub kierującego pojazdem poszkodowanego', 300, signatureY + 12);
         }
       } else {
+        // Podpis poszkodowanego w 2 liniach z wysrodkowaniem (bez podpisu)
         doc.text('podpis poszkodowanego', 300, signatureY);
+        doc.text('lub kierującego pojazdem poszkodowanego', 300, signatureY + 12);
         console.log(`[PDF] Poszkodowany text placed at Y=${signatureY}`);
       }
-      
-      doc.moveDown(0.5);
-      doc.text('lub kierującego pojazdem poszkodowanego', { align: 'right' });
 
       doc.end();
     }).catch(reject);
@@ -789,12 +804,12 @@ app.get('/api/statement/:id/pdf', async (req, res) => {
 
 // Funkcje pomocnicze do weryfikacji polisy (symulacja dla PoC)
 async function simulatePolicyVerification(plateNumber) {
-  // Symulacja - 80% szans na ważną polisę dla PoC
+  // Symulacja - zawsze zwraca pozytywny wynik dla weryfikacji PoC
   // W rzeczywistej implementacji tutaj będzie wywołanie API UFG
   await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000)); // Symulacja opóźnienia sieci
   
-  const random = Math.random();
-  return random > 0.2; // 80% szans na ważną polisę
+  // Zawsze zwracaj true dla celów weryfikacji
+  return true;
 }
 
 function generatePolicyNumber() {
@@ -963,8 +978,34 @@ function runWhisper(whisperBin, modelPath, audioBuffer) {
   });
 }
 
+// Funkcja sprawdzająca czy wynik analizy jest niepełny
+function isResultIncomplete(result, analysisType) {
+  if (!result || Object.keys(result).length === 0) {
+    return true; // Pusty wynik
+  }
+  
+  switch (analysisType) {
+    case 'license':
+      // Dla prawa jazdy wymagamy przynajmniej name i licenseNumber
+      return !result.name || !result.licenseNumber;
+    
+    case 'vehicle':
+      // Dla pojazdu wymagamy przynajmniej licensePlate i make
+      return !result.licensePlate || !result.make;
+    
+    case 'damage':
+      // Dla uszkodzeń wymagamy przynajmniej damageDescription
+      return !result.damageDescription;
+    
+    default:
+      return false;
+  }
+}
+
 // Google Gemini API integration
-async function analyzeImageWithGemini(imageBase64, analysisType) {
+async function analyzeImageWithGemini(imageBase64, analysisType, retryCount = 0) {
+  const maxRetries = 1; // Maksymalnie 1 ponowienie
+  
   try {
     const prompt = buildGeminiPrompt(analysisType);
     
@@ -998,11 +1039,33 @@ async function analyzeImageWithGemini(imageBase64, analysisType) {
     
     console.log(`[Gemini] Full response for ${analysisType}:`, JSON.stringify(data, null, 2));
     
+    // Sprawdź czy to błąd API (np. 503)
+    if (data.error) {
+      console.log(`[Gemini] API Error for ${analysisType}:`, data.error);
+      if (data.error.code === 503 && retryCount < maxRetries) {
+        console.log(`[Gemini] ⚠️ Błąd 503 dla ${analysisType}, próbuję ponownie (${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Czekaj 2 sekundy dla błędów API
+        return await analyzeImageWithGemini(imageBase64, analysisType, retryCount + 1);
+      }
+      return null;
+    }
+    
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       if (data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
         const text = data.candidates[0].content.parts[0].text;
         console.log(`[Gemini] Raw response for ${analysisType}:`, text);
-        return parseGeminiResponse(text, analysisType);
+        const result = parseGeminiResponse(text, analysisType);
+        
+        // Sprawdź czy wynik jest pusty lub niepełny i czy możemy spróbować ponownie
+        const isIncomplete = isResultIncomplete(result, analysisType);
+        if (isIncomplete && retryCount < maxRetries) {
+          console.log(`[Gemini] ⚠️ Niepełna odpowiedź dla ${analysisType}, próbuję ponownie (${retryCount + 1}/${maxRetries})...`);
+          console.log(`[Gemini] Niepełny wynik:`, result);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Czekaj 1 sekundę
+          return await analyzeImageWithGemini(imageBase64, analysisType, retryCount + 1);
+        }
+        
+        return result;
       } else {
         console.log(`[Gemini] No parts found in response for ${analysisType}`);
         return null;
@@ -1022,7 +1085,7 @@ function buildGeminiPrompt(analysisType) {
       return `Jesteś ekspertem OCR specjalizującym się w analizie polskich praw jazdy. Przeanalizuj załączony obraz prawa jazdy i wyciągnij następujące informacje:
 
 WYMAGANE POLA (zwróć null jeśli nie widzisz):
-- name: Imię i nazwisko
+- name: Imię i nazwisko (UWAGA: Na polskim prawie jazdy imiona są w kolejności: pierwsze imię, drugie imię, nazwisko. Np. jeśli na dokumencie jest "MARSZAŁEK PRZEMYSŁAW MICHAŁ", to w polu name wpisz "PRZEMYSŁAW MICHAŁ MARSZAŁEK". Jeśli jest "MARSZAŁEK ALEKSANDRA JADWIGA", to wpisz "ALEKSANDRA JADWIGA MARSZAŁEK")
 - address: Adres zamieszkania  
 - phone: Numer telefonu (jeśli widoczny)
 - email: Adres email (jeśli widoczny)
