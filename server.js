@@ -44,8 +44,23 @@ const basicAuth = (req, res, next) => {
   next();
 };
 
-// Zastosuj Basic Auth do wszystkich ścieżek
-app.use(basicAuth);
+// Zastosuj Basic Auth do wszystkich ścieżek (oprócz healthcheck)
+app.use((req, res, next) => {
+  // Pomiń auth dla healthcheck
+  if (req.path === '/health' || req.path === '/healthcheck') {
+    return next();
+  }
+  return basicAuth(req, res, next);
+});
+
+// Healthcheck endpoint dla Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/healthcheck', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Email configuration (PoC - użyj własnych ustawień SMTP)
 const emailTransporter = nodemailer.createTransport({
@@ -897,8 +912,8 @@ function generateValidUntilDate() {
 // - Baza danych: zastąp memoryStore trwałą bazą (np. Postgres), dodaj warstwę repozytorium
 // - API UFG: zastąp simulatePolicyVerification prawdziwym wywołaniem API UFG
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running at http://0.0.0.0:${PORT}`);
 });
 
 // Pomocnicze: kapitalizacja słów imienia/nazwiska
