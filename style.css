@@ -468,6 +468,11 @@ audio { width: 100%; margin-top: 8px; }
   font-size: 16px;
 }
 
+.wizard-description {
+  color: #6b7280;
+  font-size: 16px;
+}
+
 .wizard-progress {
   margin-bottom: 24px;
 }
@@ -796,6 +801,19 @@ input[type="file"]::-webkit-file-upload-button {
     padding: 16px;
   }
   
+  .wizard-header {
+    margin-bottom: 16px;
+  }
+  
+  .wizard-header h2 {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  
+  .wizard-description {
+    display: none; /* Ukryj opis na tabletach */
+  }
+  
   .wizard-step {
     padding: 16px;
   }
@@ -838,6 +856,19 @@ input[type="file"]::-webkit-file-upload-button {
   .main-title {
     font-size: 24px;
     margin: 16px 0;
+  }
+  
+  .wizard-header {
+    margin-bottom: 12px;
+  }
+  
+  .wizard-header h2 {
+    font-size: 18px;
+    margin-bottom: 2px;
+  }
+  
+  .wizard-container {
+    padding: 12px;
   }
 }
 
