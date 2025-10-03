@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let currentWizardStep = 1;
   const totalWizardSteps = 7;
   let wizardCompleted = false;
+  let skippedSteps = new Set(); // Śledzenie pominiętych kroków
   
   // Śledzenie aktywnych analiz AI
   const activeAnalyses = new Set();
@@ -555,7 +556,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const missingSteps = [];
     
-    for (const stepInfo of stepsToValidate) {
+    // Filtruj tylko kroki, które nie zostały pominięte
+    const stepsToCheck = stepsToValidate.filter(step => !skippedSteps.has(step.step));
+    
+    for (const stepInfo of stepsToCheck) {
       let currentPhotos = 0;
       if (stepInfo.fileInput && stepInfo.fileInput.__dataUrls) {
         currentPhotos = stepInfo.fileInput.__dataUrls.length;
@@ -577,6 +581,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Funkcja walidacji wymaganej liczby zdjęć dla aktualnego kroku
   function validateCurrentStepPhotos() {
+    // Jeśli aktualny krok został pominięty, nie waliduj
+    if (skippedSteps.has(currentWizardStep)) {
+      console.log('🚨 WIZARD: Step', currentWizardStep, 'was skipped, skipping validation');
+      return true;
+    }
+    
     let requiredPhotos = 0;
     let currentPhotos = 0;
     let stepName = '';
@@ -713,6 +723,10 @@ document.addEventListener('DOMContentLoaded', function() {
     wizardSkipBtn.addEventListener('click', () => {
       console.log('🚨 WIZARD: Skip button clicked, current step:', currentWizardStep);
       if (currentWizardStep < totalWizardSteps && !wizardCompleted) {
+        // Oznacz aktualny krok jako pominięty
+        skippedSteps.add(currentWizardStep);
+        console.log('🚨 WIZARD: Step', currentWizardStep, 'marked as skipped');
+        
         // Przejdź do następnego kroku bez walidacji
         currentWizardStep++;
         updateWizardStep();
@@ -1157,12 +1171,19 @@ function initializeWizardPhotoUploads() {
   function initializeWizardMicrophone() {
     const micBtn = $('wizardMicBtn');
     const detailsTextarea = $('wizardDetails');
+    let recognition = null;
     
     if (micBtn && detailsTextarea) {
       micBtn.addEventListener('click', () => {
+        // Jeśli już nagrywamy, zatrzymaj nagrywanie
+        if (recognition && micBtn.textContent.includes('Zatrzymaj')) {
+          recognition.stop();
+          return;
+        }
+        
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
           const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-          const recognition = new SpeechRecognition();
+          recognition = new SpeechRecognition();
           
           recognition.lang = 'pl-PL';
           recognition.continuous = false;
@@ -1182,6 +1203,16 @@ function initializeWizardPhotoUploads() {
           recognition.onerror = (event) => {
             alert('Błąd rozpoznawania mowy: ' + event.error);
             micBtn.textContent = '🎤 Nagraj opis';
+            micBtn.disabled = false;
+          };
+          
+          recognition.onend = () => {
+            micBtn.textContent = '🎤 Nagraj opis';
+            micBtn.disabled = false;
+          };
+          
+          recognition.onstart = () => {
+            micBtn.textContent = '⏹️ Zatrzymaj nagrywanie';
             micBtn.disabled = false;
           };
           
