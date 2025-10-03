@@ -3250,7 +3250,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
       
       // Pokaż czerwony banner jak główny przycisk
       if (speechBanner) speechBanner.classList.remove('hidden');
-      if (speechLiveText) speechLiveText.textContent = 'Nagrywanie opisu uszkodzeń poszkodowanego... Mów wyraźnie!';
+      if (speechLiveText) speechLiveText.textContent = 'Opisz uszkodzenia pojazdu poszkodowanego... Mów wyraźnie!';
 
       damageVictimRecognition.onresult = (event) => {
         let interimText = '';
@@ -3386,7 +3386,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
       
       // Pokaź czerwony banner jak główny przycisk
       if (speechBanner) speechBanner.classList.remove('hidden');
-      if (speechLiveText) speechLiveText.textContent = 'Nagrywanie opisu uszkodzeń sprawcy... Mów wyraźnie!';
+      if (speechLiveText) speechLiveText.textContent = 'Opisz uszkodzenia pojazdu sprawcy... Mów wyraźnie!';
 
       damagePerpetratorRecognition.onresult = (event) => {
         let interimText = '';
