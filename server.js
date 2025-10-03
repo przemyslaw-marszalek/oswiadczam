@@ -18,6 +18,35 @@ const nodemailer = require('nodemailer');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Middleware dla Basic Authentication (tylko w trybie testowym)
+const basicAuth = (req, res, next) => {
+  // Sprawdź czy jest włączona autoryzacja testowa
+  if (process.env.TEST_AUTH_ENABLED === 'true') {
+    const auth = req.headers.authorization;
+    
+    if (!auth || !auth.startsWith('Basic ')) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Test Access"');
+      return res.status(401).send('Authentication required for testing');
+    }
+    
+    const credentials = Buffer.from(auth.slice(6), 'base64').toString();
+    const [username, password] = credentials.split(':');
+    
+    const testUser = process.env.TEST_AUTH_USER || 'test';
+    const testPass = process.env.TEST_AUTH_PASS || 'test123';
+    
+    if (username !== testUser || password !== testPass) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Test Access"');
+      return res.status(401).send('Invalid credentials');
+    }
+  }
+  
+  next();
+};
+
+// Zastosuj Basic Auth do wszystkich ścieżek
+app.use(basicAuth);
+
 // Email configuration (PoC - użyj własnych ustawień SMTP)
 const emailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
