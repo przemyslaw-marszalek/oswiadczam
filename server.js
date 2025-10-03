@@ -65,31 +65,75 @@ app.get('/healthcheck', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Email configuration (PoC - użyj własnych ustawień SMTP)
-const emailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER || 'your-email@gmail.com',
-    pass: process.env.SMTP_PASS || 'your-app-password'
-  },
-  // Dodatkowe opcje dla Railway
-  connectionTimeout: 60000, // 60 sekund
-  greetingTimeout: 30000,   // 30 sekund
-  socketTimeout: 60000,      // 60 sekund
-  // Próbuj różne opcje TLS
-  tls: {
-    rejectUnauthorized: false,
-    ciphers: 'SSLv3'
+// Email configuration - obsługa wielu dostawców SMTP
+function createEmailTransporter() {
+  const smtpProvider = process.env.SMTP_PROVIDER || 'gmail';
+  
+  if (smtpProvider === 'resend') {
+    // Resend SMTP (zalecane dla Railway)
+    return nodemailer.createTransport({
+      host: 'smtp.resend.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'resend',
+        pass: process.env.RESEND_API_KEY
+      },
+      connectionTimeout: 30000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000
+    });
+  } else if (smtpProvider === 'sendgrid') {
+    // SendGrid SMTP
+    return nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
+      },
+      connectionTimeout: 30000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000
+    });
+  } else {
+    // Gmail SMTP (domyślne, może nie działać na Railway)
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_PORT === '465',
+      auth: {
+        user: process.env.SMTP_USER || 'your-email@gmail.com',
+        pass: process.env.SMTP_PASS || 'your-app-password'
+      },
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      }
+    });
   }
-});
+}
+
+const emailTransporter = createEmailTransporter();
 
 // Sprawdź czy e-mail jest skonfigurowany
 const isEmailConfigured = () => {
-  const user = process.env.SMTP_USER || 'your-email@gmail.com';
-  const pass = process.env.SMTP_PASS || 'your-app-password';
-  return user !== 'your-email@gmail.com' && pass !== 'your-app-password';
+  const smtpProvider = process.env.SMTP_PROVIDER || 'gmail';
+  
+  if (smtpProvider === 'resend') {
+    return !!process.env.RESEND_API_KEY;
+  } else if (smtpProvider === 'sendgrid') {
+    return !!process.env.SENDGRID_API_KEY;
+  } else {
+    // Gmail
+    const user = process.env.SMTP_USER || 'your-email@gmail.com';
+    const pass = process.env.SMTP_PASS || 'your-app-password';
+    return user !== 'your-email@gmail.com' && pass !== 'your-app-password';
+  }
 };
 
 // In-memory storage + prosty zapis na dysk (PoC). W realnej aplikacji zamień na bazę danych.
@@ -317,12 +361,14 @@ app.post('/api/statement/email', async (req, res) => {
     if (emailError.code === 'ECONNREFUSED' || emailError.code === 'ETIMEDOUT' || emailError.message.includes('timeout')) {
       res.status(500).json({ 
         error: 'Problem z połączeniem SMTP na Railway', 
-        details: 'Gmail SMTP może być zablokowany na Railway. Spróbuj alternatywnych dostawców SMTP.',
+        details: 'Gmail SMTP może być zablokowany na Railway. Przełącz się na Resend!',
         suggestions: [
-          'Użyj SendGrid (darmowy do 100 e-maili/dzień)',
-          'Użyj Mailgun (darmowy do 10,000 e-maili/miesiąc)', 
-          'Użyj Resend (darmowy do 3,000 e-maili/miesiąc)',
-          'Sprawdź czy Railway ma ograniczenia portów outbound'
+          '1. Zarejestruj się na https://resend.com (darmowy do 3,000 e-maili/miesiąc)',
+          '2. Dodaj zmienne środowiskowe w Railway:',
+          '   - SMTP_PROVIDER=resend',
+          '   - RESEND_API_KEY=re_xxxxxxxxxxxxx',
+          '3. Restart aplikacji w Railway',
+          '4. Alternatywnie: SendGrid (100 e-maili/dzień) lub Mailgun (10,000/miesiąc)'
         ]
       });
     } else {
@@ -506,6 +552,10 @@ app.post('/api/ai/analyze', async (req, res) => {
 
   const maybeAnyPlate = (lower.match(/[a-z]{2,3}\s?\d{4,6}/i) || [])[0];
   const hasCollision = lower.includes('koliz') || lower.includes('stłuc') || lower.includes('wypad');
+  
+  // Wyciągnij szacunkowe koszty uszkodzeń
+  const costMatch = lower.match(/(\d+)\s*(?:pln|zł|euro|eur|\$)/);
+  const estimatedCost = costMatch ? parseInt(costMatch[1]) : null;
 
   // Heurystyki prostych pól A (opcjonalne – nadpiszemy tylko puste)
   let driverAName = null;
@@ -528,6 +578,12 @@ app.post('/api/ai/analyze', async (req, res) => {
     vehicleBPlate: maybeAnyPlate || 'WX 12345',
     // Nie ustawiaj incidentDetails automatycznie - pozwól użytkownikowi samemu wpisać
     incidentDetails: null,
+    // Pola uszkodzeń
+    damageDescriptionVictim: null,
+    damageDescriptionPerpetrator: null,
+    damageValueVictim: estimatedCost || null,
+    damageValuePerpetrator: estimatedCost || null,
+    additionalInfo: null,
     // Pola A – tylko propozycje (frontend ustawi je, jeśli puste)
     driverAName: driverAName || null,
     vehicleAPlate: vehicleAPlate || null,
@@ -983,7 +1039,9 @@ async function analyzeTextWithGemini(transcript) {
     "incidentDetails": "szczegółowy opis okoliczności zdarzenia",
     "damageDescriptionVictim": "opis uszkodzeń pojazdu poszkodowanego", 
     "damageDescriptionPerpetrator": "opis uszkodzeń pojazdu sprawcy",
-    "additionalInfo": "dodatkowe informacje o zdarzeniu"
+    "additionalInfo": "dodatkowe informacje o zdarzeniu",
+    "damageValueVictim": "szacunkowa wartość szkody pojazdu poszkodowanego (tylko liczba PLN)",
+    "damageValuePerpetrator": "szacunkowa wartość szkody pojazdu sprawcy (tylko liczba PLN)"
   }
 }
 

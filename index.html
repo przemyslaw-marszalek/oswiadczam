@@ -184,7 +184,7 @@
         </div>
       </div>
       <div id="aiStatus" class="ai-status hidden" role="status" aria-live="polite"></div>
-      <h1 class="main-title">Oświadczam.to</h1>
+      <h1 class="main-title">Oświadczenie sprawcy kolizji drogowej</h1>
       
       <!-- Wybór trybu wypełniania -->
       <div class="mode-selection">
@@ -447,8 +447,11 @@
           <label>Data i godzina
             <input type="datetime-local" id="datetime" required>
           </label>
-          <div class="dictation-section">
-            <button type="button" id="dictateBtn" class="dictate-main-btn">🎤 Opisz zdarzenie</button>
+          <label>Szczegóły zdarzenia
+            <div class="textarea-with-button">
+              <textarea id="incidentDetails" rows="4" placeholder=""></textarea>
+              <button type="button" id="dictateBtn" class="dictate-btn-small">🎤 Opisz zdarzenie</button>
+            </div>
             <div id="dictationText" class="dictation-text hidden">
               <h3>Opis zdarzenia:</h3>
               <div id="dictationContent" class="dictation-content"></div>
@@ -457,12 +460,20 @@
                 <button type="button" id="clearDictationBtn" class="clear-btn">Wyczyść</button>
               </div>
             </div>
-          </div>
-          <label>Szczegóły zdarzenia
-            <textarea id="incidentDetails" rows="4" placeholder=""></textarea>
           </label>
                   <label>Opis uszkodzeń pojazdu poszkodowanego
-                    <textarea id="damageDescriptionVictim" rows="3" placeholder=""></textarea>
+                    <div class="textarea-with-button">
+                      <textarea id="damageDescriptionVictim" rows="3" placeholder=""></textarea>
+                      <button type="button" id="dictateDamageVictimBtn" class="dictate-btn-small">🎤 Podyktuj</button>
+                    </div>
+                    <div id="dictationDamageVictimText" class="dictation-text hidden">
+                      <h3>Opis uszkodzeń poszkodowanego:</h3>
+                      <div id="dictationDamageVictimContent" class="dictation-content"></div>
+                      <div class="dictation-actions">
+                        <button type="button" id="applyDictationDamageVictimBtn" class="apply-btn">Zastosuj do formularza</button>
+                        <button type="button" id="clearDictationDamageVictimBtn" class="clear-btn">Wyczyść</button>
+                      </div>
+                    </div>
                   </label>
                   <label>Szacunkowa wartość szkody pojazdu poszkodowanego (PLN)
                     <input type="number" id="damageValueVictim" placeholder="np. 5000" min="0" step="100">
@@ -473,7 +484,18 @@
                     <div id="victimPhotosPreviews" class="upload-previews"></div>
                   </label>
                   <label>Opis uszkodzeń pojazdu sprawcy
-                    <textarea id="damageDescriptionPerpetrator" rows="3" placeholder=""></textarea>
+                    <div class="textarea-with-button">
+                      <textarea id="damageDescriptionPerpetrator" rows="3" placeholder=""></textarea>
+                      <button type="button" id="dictateDamagePerpetratorBtn" class="dictate-btn-small">🎤 Podyktuj</button>
+                    </div>
+                    <div id="dictationDamagePerpetratorText" class="dictation-text hidden">
+                      <h3>Opis uszkodzeń sprawcy:</h3>
+                      <div id="dictationDamagePerpetratorContent" class="dictation-content"></div>
+                      <div class="dictation-actions">
+                        <button type="button" id="applyDictationDamagePerpetratorBtn" class="apply-btn">Zastosuj do formularza</button>
+                        <button type="button" id="clearDictationDamagePerpetratorBtn" class="clear-btn">Wyczyść</button>
+                      </div>
+                    </div>
                   </label>
                   <label>Szacunkowa wartość szkody pojazdu sprawcy (PLN)
                     <input type="number" id="damageValuePerpetrator" placeholder="np. 3000" min="0" step="100">

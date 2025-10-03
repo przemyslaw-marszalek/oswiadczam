@@ -6,7 +6,7 @@
 document.addEventListener('DOMContentLoaded', function() {
   const $ = (id) => document.getElementById(id);
 
-  // Obsługa ukrywania banera reklamowego przy przewijaniu
+  // Obsługa ukrywania banera reklamowego przy przewijaniu (tylko na mobile)
   function initAdBannerScroll() {
     const adBanner = document.querySelector('.ad-banner');
     if (!adBanner) return;
@@ -15,9 +15,16 @@ document.addEventListener('DOMContentLoaded', function() {
     let ticking = false;
 
     function updateAdBanner() {
+      // Sprawdź czy jesteśmy na mobile (szerokość <= 768px)
+      if (window.innerWidth > 768) {
+        // Na desktop - zawsze pokazuj baner
+        adBanner.classList.remove('hidden');
+        return;
+      }
+
       const currentScrollY = window.scrollY;
       
-      // Ukryj baner przy przewijaniu w dół, pokaż przy przewijaniu w górę
+      // Ukryj baner przy przewijaniu w dół, pokaż przy przewijaniu w górę (tylko na mobile)
       if (currentScrollY > lastScrollY && currentScrollY > 100) {
         // Przewijanie w dół - ukryj baner
         adBanner.classList.add('hidden');
@@ -39,10 +46,96 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Nasłuchuj przewijania
     window.addEventListener('scroll', requestTick, { passive: true });
+    
+    // Nasłuchuj zmiany rozmiaru okna (responsive)
+    window.addEventListener('resize', requestTick, { passive: true });
   }
 
   // Inicjalizuj obsługę banera
   initAdBannerScroll();
+
+  // Mapowanie nazw pól na wyświetlane nazwy
+  const fieldDisplayNames = {
+    driverAName: 'Imię i nazwisko sprawcy',
+    driverBName: 'Imię i nazwisko poszkodowanego',
+    vehicleAPlate: 'Numer rejestracyjny pojazdu sprawcy',
+    vehicleBPlate: 'Numer rejestracyjny pojazdu poszkodowanego',
+    location: 'Miejsce zdarzenia',
+    datetime: 'Data i godzina zdarzenia',
+    incidentDetails: 'Szczegóły zdarzenia',
+    driverAEmail: 'E-mail sprawcy',
+    driverBEmail: 'E-mail poszkodowanego'
+  };
+
+  // Funkcja dodawania klasy error do pola
+  function addFieldError(fieldId) {
+    const fieldElement = fields[fieldId] || $('driverASignature') || $('driverBSignature');
+    if (fieldElement) {
+      fieldElement.classList.add('field-error');
+      fieldElement.parentElement.classList.add('field-error-container');
+    }
+  }
+
+  // Funkcja usuwania klasy error z pola
+  function removeFieldError(fieldId) {
+    const fieldElement = fields[fieldId] || $('driverASignature') || $('driverBSignature');
+    if (fieldElement) {
+      fieldElement.classList.remove('field-error');
+      fieldElement.parentElement.classList.remove('field-error-container');
+    }
+  }
+
+  // Funkcja usuwania wszystkich błędów walidacji
+  function clearAllFieldErrors() {
+    document.querySelectorAll('.field-error').forEach(el => {
+      el.classList.remove('field-error');
+    });
+    document.querySelectorAll('.field-error-container').forEach(el => {
+      el.classList.remove('field-error-container');
+    });
+  }
+
+  // Funkcja walidacji z wyświetlaniem nazw pól i zaznaczaniem na czerwono
+  function validateRequiredFields() {
+    clearAllFieldErrors(); // Usuń poprzednie błędy
+    
+    const payload = serializeForm();
+    const errors = [];
+    
+    // Sprawdź podstawowe wymagane pola
+    const requiredFields = ['driverAName', 'vehicleAPlate', 'location', 'datetime'];
+    
+    requiredFields.forEach(field => {
+      if (!payload[field] || payload[field].trim() === '') {
+        errors.push(fieldDisplayNames[field]);
+        addFieldError(field);
+      }
+    });
+    
+    // Sprawdź podpisy
+    if (!hasSignature(driverASignature)) {
+      errors.push('Podpis sprawcy kolizji');
+      addFieldError('driverASignature');
+    }
+    
+    if (!hasSignature(driverBSignature)) {
+      errors.push('Podpis poszkodowanego');
+      addFieldError('driverBSignature');
+    }
+    
+    return errors;
+  }
+
+  // Funkcja walidacji dla e-maili (dodatkowa)
+  function validateEmails() {
+    const payload = serializeForm();
+    
+    if (!payload.driverAEmail && !payload.driverBEmail) {
+      return ['Przynajmniej jeden adres e-mail (sprawcy lub poszkodowanego)'];
+    }
+    
+    return [];
+  }
 
   const fields = {
     driverAName: $('driverAName'),
@@ -175,6 +268,36 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Inicjalizacja wizarda AI
   initializeWizard();
+  
+  // Event listenery do usuwania błędów walidacji
+  function addValidationErrorListeners() {
+    const fieldIds = Object.keys(fieldDisplayNames);
+    
+    fieldIds.forEach(fieldId => {
+      const fieldElement = fields[fieldId];
+      if (fieldElement) {
+        fieldElement.addEventListener('input', () => {
+          removeFieldError(fieldId);
+        });
+      }
+    });
+    
+    // Event listenery dla podpisów
+    if (driverASignature) {
+      driverASignature.addEventListener('mouseup', () => {
+        removeFieldError('driverASignature');
+      });
+    }
+    
+    if (driverBSignature) {
+      driverBSignature.addEventListener('mouseup', () => {
+        removeFieldError('driverBSignature');
+      });
+    }
+  }
+  
+  // Inicjalizuj event listenery walidacji
+  addValidationErrorListeners();
   
   // Ustaw początkowy stan przycisków
   updateButtonStates();
@@ -528,24 +651,12 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Approval status initialized, hidden:', approvalStatus.classList.contains('hidden'));
     
     approveBtn.addEventListener('click', () => {
-      // Walidacja przed zatwierdzeniem
-      const payload = serializeForm();
-      const requiredFields = ['driverAName', 'vehicleAPlate', 'location', 'datetime'];
-      const missingFields = requiredFields.filter(field => !payload[field] || payload[field].trim() === '');
+      // Walidacja z zaznaczaniem błędów na czerwono
+      const validationErrors = validateRequiredFields();
       
-      if (missingFields.length > 0) {
-        alert(`Uzupełnij wymagane pola przed zatwierdzeniem: ${missingFields.join(', ')}`);
-        return;
-      }
-      
-      // Sprawdź podpisy
-      if (!hasSignature(driverASignature)) {
-        alert('Podpis sprawcy kolizji jest wymagany przed zatwierdzeniem oświadczenia.');
-        return;
-      }
-      
-      if (!hasSignature(driverBSignature)) {
-        alert('Podpis poszkodowanego jest wymagany przed zatwierdzeniem oświadczenia.');
+      if (validationErrors.length > 0) {
+        const errorMessage = `Uzupełnij wymagane pola:\n• ${validationErrors.join('\n• ')}`;
+        alert(errorMessage);
         return;
       }
       
@@ -3098,6 +3209,278 @@ function transferDamagePhotosFromWizard(analysisResults) {
     dictationContent.textContent = '';
     accumulatedTranscript = '';
   });
+
+  // Dyktowanie uszkodzeń poszkodowanego
+  const dictateDamageVictimBtn = $('dictateDamageVictimBtn');
+  const dictationDamageVictimText = $('dictationDamageVictimText');
+  const dictationDamageVictimContent = $('dictationDamageVictimContent');
+  const applyDictationDamageVictimBtn = $('applyDictationDamageVictimBtn');
+  const clearDictationDamageVictimBtn = $('clearDictationDamageVictimBtn');
+
+  if (dictateDamageVictimBtn) {
+    let damageVictimRecognition = null;
+    let isListeningDamageVictim = false;
+    
+    dictateDamageVictimBtn.addEventListener('click', () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('Rozpoznawanie mowy nie jest dostępne w tej przeglądarce');
+        return;
+      }
+
+      // Toggle: jeśli już słuchamy, zatrzymaj nagrywanie
+      if (isListeningDamageVictim && damageVictimRecognition) {
+        damageVictimRecognition.stop();
+        isListeningDamageVictim = false;
+        dictateDamageVictimBtn.textContent = '🎤 Podyktuj';
+        return;
+      }
+
+      damageVictimRecognition = new SpeechRecognition();
+      damageVictimRecognition.lang = 'pl-PL';
+      damageVictimRecognition.interimResults = true; // pokazuj tekst na żywo
+      damageVictimRecognition.continuous = true; // nasłuchuj ciągle
+      damageVictimRecognition.maxAlternatives = 1;
+
+      let accumulatedTranscript = '';
+
+      dictateDamageVictimBtn.textContent = '⏹️ Zatrzymaj';
+      dictateDamageVictimBtn.disabled = false;
+      isListeningDamageVictim = true;
+      
+      // Pokaż czerwony banner jak główny przycisk
+      if (speechBanner) speechBanner.classList.remove('hidden');
+      if (speechLiveText) speechLiveText.textContent = 'Nagrywanie opisu uszkodzeń poszkodowanego... Mów wyraźnie!';
+
+      damageVictimRecognition.onresult = (event) => {
+        let interimText = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            accumulatedTranscript += res[0].transcript + ' ';
+          } else {
+            interimText += res[0].transcript + ' ';
+          }
+        }
+        
+        // Pokaź tekst na żywo w content
+        const liveText = (accumulatedTranscript + ' ' + interimText).trim();
+        dictationDamageVictimContent.textContent = liveText;
+        dictationDamageVictimText.classList.remove('hidden');
+      };
+
+      damageVictimRecognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        dictateDamageVictimBtn.textContent = '🎤 Podyktuj';
+        dictateDamageVictimBtn.disabled = false;
+        damageVictimRecognition = null;
+        isListeningDamageVictim = false;
+        
+        // Ukryj czerwony banner
+        if (speechBanner) speechBanner.classList.add('hidden');
+      };
+
+      damageVictimRecognition.onend = () => {
+        dictateDamageVictimBtn.textContent = '🎤 Podyktuj';
+        dictateDamageVictimBtn.disabled = false;
+        damageVictimRecognition = null;
+        isListeningDamageVictim = false;
+        
+        // Ukryj czerwony banner
+        if (speechBanner) speechBanner.classList.add('hidden');
+        
+        // Ustaw finalny tekst
+        if (accumulatedTranscript.trim()) {
+          dictationDamageVictimContent.textContent = accumulatedTranscript.trim();
+        }
+      };
+
+      damageVictimRecognition.start();
+    });
+  }
+
+  if (applyDictationDamageVictimBtn) {
+    applyDictationDamageVictimBtn.addEventListener('click', async () => {
+      const transcript = dictationDamageVictimContent.textContent.trim();
+      if (!transcript) return;
+      
+      if (fields.damageDescriptionVictim) {
+        fields.damageDescriptionVictim.value = transcript;
+      }
+      
+      // Ukryj banner po zastosowaniu
+      if (speechBanner) speechBanner.classList.add('hidden');
+      dictationDamageVictimText.classList.add('hidden');
+      
+      // Analiza AI dla opisu uszkodzeń poszkodowanego
+      setAiStatus('Analiza opisu uszkodzeń...', '');
+      try {
+        const response = await fetch('/api/ai/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript })
+        });
+        const data = await response.json();
+        if (data.ok && data.fields) {
+          // Uzupełnij związane pola (szczególnie damageDescriptionVictim i damageValueVictim)
+          if (data.fields.damageDescriptionVictim && fields.damageDescriptionVictim) {
+            fields.damageDescriptionVictim.value = data.fields.damageDescriptionVictim;
+          }
+          if (data.fields.damageValueVictim && fields.damageValueVictim) {
+            fields.damageValueVictim.value = data.fields.damageValueVictim;
+          }
+          updatePreview();
+          setAiStatus('Opis uszkodzeń przeanalizowany', 'success');
+        }
+      } catch (error) {
+        console.error('AI analysis error:', error);
+        setAiStatus('Błąd analizy AI', 'error');
+      }
+    });
+  }
+
+  if (clearDictationDamageVictimBtn) {
+    clearDictationDamageVictimBtn.addEventListener('click', () => {
+      dictationDamageVictimText.classList.add('hidden');
+      dictationDamageVictimContent.textContent = '';
+    });
+  }
+
+  // Dyktowanie uszkodzeń sprawcy
+  const dictateDamagePerpetratorBtn = $('dictateDamagePerpetratorBtn');
+  const dictationDamagePerpetratorText = $('dictationDamagePerpetratorText');
+  const dictationDamagePerpetratorContent = $('dictationDamagePerpetratorContent');
+  const applyDictationDamagePerpetratorBtn = $('applyDictationDamagePerpetratorBtn');
+  const clearDictationDamagePerpetratorBtn = $('clearDictationDamagePerpetratorBtn');
+
+  if (dictateDamagePerpetratorBtn) {
+    let damagePerpetratorRecognition = null;
+    let isListeningDamagePerpetrator = false;
+    
+    dictateDamagePerpetratorBtn.addEventListener('click', () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('Rozpoznawanie mowy nie jest dostępne w tej przeglądarce');
+        return;
+      }
+
+      // Toggle: jeśli już słuchamy, zatrzymaj nagrywanie
+      if (isListeningDamagePerpetrator && damagePerpetratorRecognition) {
+        damagePerpetratorRecognition.stop();
+        isListeningDamagePerpetrator = false;
+        dictateDamagePerpetratorBtn.textContent = '🎤 Podyktuj';
+        return;
+      }
+
+      damagePerpetratorRecognition = new SpeechRecognition();
+      damagePerpetratorRecognition.lang = 'pl-PL';
+      damagePerpetratorRecognition.interimResults = true; // pokazuj tekst na żywo
+      damagePerpetratorRecognition.continuous = true; // nasłuchuj ciągle
+      damagePerpetratorRecognition.maxAlternatives = 1;
+
+      let accumulatedTranscript = '';
+
+      dictateDamagePerpetratorBtn.textContent = '⏹️ Zatrzymaj';
+      dictateDamagePerpetratorBtn.disabled = false;
+      isListeningDamagePerpetrator = true;
+      
+      // Pokaź czerwony banner jak główny przycisk
+      if (speechBanner) speechBanner.classList.remove('hidden');
+      if (speechLiveText) speechLiveText.textContent = 'Nagrywanie opisu uszkodzeń sprawcy... Mów wyraźnie!';
+
+      damagePerpetratorRecognition.onresult = (event) => {
+        let interimText = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            accumulatedTranscript += res[0].transcript + ' ';
+          } else {
+            interimText += res[0].transcript + ' ';
+          }
+        }
+        
+        // Pokaź tekst na żywo w content
+        const liveText = (accumulatedTranscript + ' ' + interimText).trim();
+        dictationDamagePerpetratorContent.textContent = liveText;
+        dictationDamagePerpetratorText.classList.remove('hidden');
+      };
+
+      damagePerpetratorRecognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        dictateDamagePerpetratorBtn.textContent = '🎤 Podyktuj';
+        dictateDamagePerpetratorBtn.disabled = false;
+        damagePerpetratorRecognition = null;
+        isListeningDamagePerpetrator = false;
+        
+        // Ukryj czerwony banner
+        if (speechBanner) speechBanner.classList.add('hidden');
+      };
+
+      damagePerpetratorRecognition.onend = () => {
+        dictateDamagePerpetratorBtn.textContent = '🎤 Podyktuj';
+        dictateDamagePerpetratorBtn.disabled = false;
+        damagePerpetratorRecognition = null;
+        isListeningDamagePerpetrator = false;
+        
+        // Ukryj czerwony banner
+        if (speechBanner) speechBanner.classList.add('hidden');
+        
+        // Ustaw finalny tekst
+        if (accumulatedTranscript.trim()) {
+          dictationDamagePerpetratorContent.textContent = accumulatedTranscript.trim();
+        }
+      };
+
+      damagePerpetratorRecognition.start();
+    });
+  }
+
+  if (applyDictationDamagePerpetratorBtn) {
+    applyDictationDamagePerpetratorBtn.addEventListener('click', async () => {
+      const transcript = dictationDamagePerpetratorContent.textContent.trim();
+      if (!transcript) return;
+      
+      if (fields.damageDescriptionPerpetrator) {
+        fields.damageDescriptionPerpetrator.value = transcript;
+      }
+      
+      // Ukryj banner po zastosowaniu
+      if (speechBanner) speechBanner.classList.add('hidden');
+      dictationDamagePerpetratorText.classList.add('hidden');
+      
+      // Analiza AI dla opisu uszkodzenia sprawcy
+      setAiStatus('Analiza opisu uszkodzeń...', '');
+      try {
+        const response = await fetch('/api/ai/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript })
+        });
+        const data = await response.json();
+        if (data.ok && data.fields) {
+          // Uzupełnij związane pola (szczególnie damageDescriptionPerpetrator i damageValuePerpetrator)
+          if (data.fields.damageDescriptionPerpetrator && fields.damageDescriptionPerpetrator) {
+            fields.damageDescriptionPerpetrator.value = data.fields.damageDescriptionPerpetrator;
+          }
+          if (data.fields.damageValuePerpetrator && fields.damageValuePerpetrator) {
+            fields.damageValuePerpetrator.value = data.fields.damageValuePerpetrator;
+          }
+          updatePreview();
+          setAiStatus('Opis uszkodzeń przeanalizowany', 'success');
+        }
+      } catch (error) {
+        console.error('AI analysis error:', error);
+        setAiStatus('Błąd analizy AI', 'error');
+      }
+    });
+  }
+
+  if (clearDictationDamagePerpetratorBtn) {
+    clearDictationDamagePerpetratorBtn.addEventListener('click', () => {
+      dictationDamagePerpetratorText.classList.add('hidden');
+      dictationDamagePerpetratorContent.textContent = '';
+    });
+  }
   qrClose.addEventListener('click', () => {
     qrModal.classList.add('hidden');
   });
@@ -3137,18 +3520,19 @@ function transferDamagePhotosFromWizard(analysisResults) {
       return;
     }
     
-    // Sprawdź wymagane pola
-    const requiredFields = ['driverAName', 'vehicleAPlate', 'location', 'datetime'];
-    const missingFields = requiredFields.filter(field => !payload[field] || payload[field].trim() === '');
+    // Walidacja z zaznaczaniem błędów na czerwono
+    const validationErrors = validateRequiredFields();
     
-    if (missingFields.length > 0) {
-      alert(`Brak wymaganych pól: ${missingFields.join(', ')}`);
+    if (validationErrors.length > 0) {
+      const errorMessage = `Uzupełnij wymagane pola:\n• ${validationErrors.join('\n• ')}`;
+      alert(errorMessage);
       return;
     }
     
-    // Sprawdź czy są adresy e-mail
-    if (!payload.driverAEmail && !payload.driverBEmail) {
-      alert('Brak adresów e-mail sprawcy i poszkodowanego. Dodaj przynajmniej jeden adres e-mail.');
+    // Sprawdź e-maile
+    const emailErrors = validateEmails();
+    if (emailErrors.length > 0) {
+      alert(emailErrors.join('\n'));
       return;
     }
     
@@ -3361,12 +3745,12 @@ function transferDamagePhotosFromWizard(analysisResults) {
     
     const payload = serializeForm();
     
-    // Sprawdź wymagane pola
-    const requiredFields = ['driverAName', 'vehicleAPlate', 'location', 'datetime'];
-    const missingFields = requiredFields.filter(field => !payload[field] || payload[field].trim() === '');
+    // Walidacja z zaznaczaniem błędów na czerwono
+    const validationErrors = validateRequiredFields();
     
-    if (missingFields.length > 0) {
-      alert(`Brak wymaganych pól: ${missingFields.join(', ')}`);
+    if (validationErrors.length > 0) {
+      const errorMessage = `Uzupełnij wymagane pola:\n• ${validationErrors.join('\n• ')}`;
+      alert(errorMessage);
       return;
     }
     

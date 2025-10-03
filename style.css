@@ -1350,4 +1350,107 @@ input[type="file"]::-webkit-file-upload-button {
   .signature-canvas { width: 100%; max-width: 350px; }
 }
 
+/* Style dla textarea z przyciskami */
+.textarea-with-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.textarea-with-button textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.dictate-btn-small {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  align-self: flex-start;
+}
+
+.dictate-btn-small:hover {
+  background: #2563eb;
+}
+
+.dictate-btn-small:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Mobile responsive dla przycisków dyktowania */
+@media (max-width: 768px) {
+  .textarea-with-button {
+    gap: 6px;
+  }
+  
+  .dictate-btn-small {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  
+  /* Padding wizard header na mobile */
+  .wizard-header {
+    margin-bottom: 8px !important;
+  }
+  
+  .wizard-header h2 {
+    margin-bottom: 2px !important;
+  }
+  
+  .wizard-description {
+    margin-bottom: 4px !important;
+  }
+  
+  /* Zmniejsz tytuł główny na mobile */
+  .main-title {
+    font-size: 20px !important;
+  }
+}
+
+/* Style dla błędów walidacji */
+.field-error {
+  border: 2px solid #dc2626 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+}
+
+.field-error-container {
+  position: relative;
+}
+
+.field-error-container::after {
+  content: '⚠️ Pole wymagane';
+  position: absolute;
+  top: -8px;
+  right: 0;
+  background: #dc2626;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 10;
+}
+
+.field-error:focus {
+  outline: none !important;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2) !important;
+}
+
+/* Style dla błędów podpisów */
+.signature-container.field-error-container {
+  border: 2px solid #dc2626;
+  border-radius: 8px;
+  background-color: #fef2f2;
+}
+
 
