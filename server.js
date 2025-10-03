@@ -82,6 +82,30 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true });
 });
 
+// Middleware do sprawdzania hasła administratora
+const checkAdminAuth = (req, res, next) => {
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const providedPassword = req.headers.authorization?.replace('Bearer ', '') || req.query.password;
+  
+  if (providedPassword === adminPassword) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Brak autoryzacji', message: 'Wymagane hasło administratora' });
+  }
+};
+
+// Endpoint do logowania administratora
+app.post('/api/admin/login', (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const { password } = req.body;
+  
+  if (password === adminPassword) {
+    res.json({ success: true, message: 'Autoryzacja pomyślna' });
+  } else {
+    res.status(401).json({ success: false, message: 'Nieprawidłowe hasło' });
+  }
+});
+
 // Admin panel (prosty widok) – serwuj dedykowany plik
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
@@ -546,7 +570,7 @@ app.post('/api/policy/verify', async (req, res) => {
 });
 
 // API: Lista zapisanych oświadczeń (podgląd PoC)
-app.get('/api/statement', (req, res) => {
+app.get('/api/statement', checkAdminAuth, (req, res) => {
   res.json({ ok: true, items: memoryStore.statements });
 });
 
@@ -785,7 +809,7 @@ async function generatePDFBuffer(item) {
 }
 
 // Generowanie PDF dla konkretnego oświadczenia
-app.get('/api/statement/:id/pdf', async (req, res) => {
+app.get('/api/statement/:id/pdf', checkAdminAuth, async (req, res) => {
   const { id } = req.params;
   const item = memoryStore.statements.find((s) => s.id === id);
   if (!item) return res.status(404).send('Not found');
