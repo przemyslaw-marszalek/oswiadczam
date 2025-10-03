@@ -701,9 +701,9 @@ async function generatePDFBuffer(item) {
     let boldFontName = 'Helvetica-Bold';
     
     try {
-      // Sprawdź czy fonty Liberation Sans są dostępne lokalnie (development)
-      const fontPath = '/Users/pma/Library/Fonts/LiberationSans-Regular.ttf';
-      const boldFontPath = '/Users/pma/Library/Fonts/LiberationSans-Bold.ttf';
+      // Sprawdź czy fonty Liberation Sans są dostępne w projekcie
+      const fontPath = path.join(__dirname, 'fonts', 'LiberationSans-Regular.ttf');
+      const boldFontPath = path.join(__dirname, 'fonts', 'LiberationSans-Bold.ttf');
       const fs = require('fs');
       
       if (fs.existsSync(fontPath) && fs.existsSync(boldFontPath)) {
@@ -711,12 +711,12 @@ async function generatePDFBuffer(item) {
         doc.registerFont('LiberationSans-Bold', boldFontPath);
         fontName = 'LiberationSans';
         boldFontName = 'LiberationSans-Bold';
-        console.log('[PDF] Using Liberation Sans fonts');
+        console.log('[PDF] Using Liberation Sans fonts from project');
       } else {
-        console.log('[PDF] Using default Helvetica fonts');
+        console.log('[PDF] Liberation Sans fonts not found, using default Helvetica fonts');
       }
     } catch (error) {
-      console.log('[PDF] Using default Helvetica fonts (fallback)');
+      console.log('[PDF] Using default Helvetica fonts (fallback):', error.message);
     }
 
     // Format zgodny z wzorem oświadczenia sprawcy kolizji
