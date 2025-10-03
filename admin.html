@@ -583,7 +583,7 @@
           <div class="details-section">
             <h3>Akcje</h3>
             <div>
-              <a href="/api/statement/${statement.id}/pdf" target="_blank" class="action-btn btn-primary">Pobierz PDF</a>
+              <button class="action-btn btn-primary" onclick="downloadPDF('${statement.id}')">Pobierz PDF</button>
               <button class="action-btn btn-success" onclick="reportToInsurance('${statement.id}')">Zgłoś sprawę do OC</button>
             </div>
           </div>
@@ -598,6 +598,34 @@
 
         // TODO: W przyszłości będzie to wysyłać email do ubezpieczyciela
         alert(`Funkcja "Zgłoś sprawę do OC" będzie dostępna wkrótce.\n\nSprawca: ${statement.driverAName}\nPoszkodowany: ${statement.driverBName}\nMiejsce: ${statement.location}\n\nEmail zostanie wysłany do ubezpieczyciela sprawcy wraz z oświadczeniem i zdjęciami uszkodzeń.`);
+      }
+
+      // Funkcja do pobierania PDF z autoryzacją
+      async function downloadPDF(statementId) {
+        try {
+          const response = await fetch(`/api/statement/${statementId}/pdf`, {
+            headers: {
+              'Authorization': `Bearer ${authToken}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `oswiadczenie_${statementId}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } catch (error) {
+          console.error('Error downloading PDF:', error);
+          alert('Błąd podczas pobierania PDF: ' + error.message);
+        }
       }
 
       // Funkcja do wyświetlania zdjęć w modalu
