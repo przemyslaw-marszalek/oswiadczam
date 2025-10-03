@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "PORT=4000 node server.js",
+    "start": "node server.js",
     "dev": "NODE_ENV=development PORT=4000 node server.js",
     "setup:whisper": "bash ./scripts/setup_whisper_macos.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [],
   "author": "",
