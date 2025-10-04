@@ -73,15 +73,18 @@ function createEmailTransporter() {
     // Resend SMTP (zalecane dla Railway)
     return nodemailer.createTransport({
       host: 'smtp.resend.com',
-      port: 587,
+      port: 2525, // Railway używa portu 2525 dla SMTP
       secure: false,
       auth: {
         user: 'resend',
         pass: process.env.RESEND_API_KEY
       },
-      connectionTimeout: 30000,
-      greetingTimeout: 15000,
-      socketTimeout: 30000
+      connectionTimeout: 60000, // Zwiększony timeout dla Railway
+      greetingTimeout: 30000,
+      socketTimeout: 60000,
+      tls: {
+        rejectUnauthorized: false // Dla Railway platform
+      }
     });
   } else if (smtpProvider === 'sendgrid') {
     // SendGrid SMTP
@@ -119,6 +122,18 @@ function createEmailTransporter() {
 }
 
 const emailTransporter = createEmailTransporter();
+
+// Test połączenia SMTP (debug na Railway)
+if (process.env.RAILWAY_ENVIRONMENT) {
+  console.log('🚝 Railway Environment detected - SMTP debug mode');
+  emailTransporter.verify((error, success) => {
+    if (error) {
+      console.error('❌ SMTP connection test failed:', error);
+    } else {
+      console.log('✅ SMTP connection test successful');
+    }
+  });
+}
 
 // Sprawdź czy e-mail jest skonfigurowany
 const isEmailConfigured = () => {
