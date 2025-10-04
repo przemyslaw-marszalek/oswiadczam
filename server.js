@@ -67,7 +67,7 @@ app.get('/healthcheck', (req, res) => {
 
 // Email configuration - obsługa wielu dostawców SMTP
 function createEmailTransporter() {
-  const smtpProvider = process.env.SMTP_PROVIDER || 'gmail';
+  const smtpProvider = process.env.SMTP_PROVIDER || 'resend';
   
   if (smtpProvider === 'resend') {
     // Resend SMTP (zalecane dla Railway)
@@ -122,7 +122,7 @@ const emailTransporter = createEmailTransporter();
 
 // Sprawdź czy e-mail jest skonfigurowany
 const isEmailConfigured = () => {
-  const smtpProvider = process.env.SMTP_PROVIDER || 'gmail';
+  const smtpProvider = process.env.SMTP_PROVIDER || 'resend';
   
   if (smtpProvider === 'resend') {
     return !!process.env.RESEND_API_KEY;
