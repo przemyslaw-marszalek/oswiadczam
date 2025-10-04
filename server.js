@@ -254,15 +254,23 @@ app.post('/api/statement/email', async (req, res) => {
 
   // Sprawdź czy e-mail jest skonfigurowany
   if (!isEmailConfigured()) {
+    const smtpProvider = process.env.SMTP_PROVIDER || 'resend';
+    const errorMessage = smtpProvider === 'resend' 
+      ? 'E-mail nie jest skonfigurowany. Ustaw RESEND_API_KEY w Railway.'
+      : 'E-mail nie jest skonfigurowany. Ustaw SMTP_USER oraz SMTP_PASS w Railway.';
+      
     return res.status(400).json({ 
-      error: 'E-mail nie jest skonfigurowany. Edytuj plik .env i ustaw SMTP_USER oraz SMTP_PASS.',
-      instructions: {
-        step1: 'Idź na https://myaccount.google.com/security',
-        step2: 'Włącz weryfikację dwuetapową',
-        step3: 'Wygeneruj hasło aplikacji',
-        step4: 'Edytuj plik .env: nano .env',
-        step5: 'Ustaw SMTP_USER=twoj-email@gmail.com i SMTP_PASS=twoje-haslo-aplikacji'
-      }
+      error: errorMessage,
+      provider: smtpProvider,
+      instructions: smtpProvider === 'resend' ? [
+        '1. Zarejestruj się na https://resend.com',
+        '2. Dodaj zmienną RESEND_API_KEY w Railway',
+        '3. Opcjonalnie ustaw RESEND_FROM_EMAIL dla własnej domeny'
+      ] : [
+        '1. Skonfiguruj Gmail SMTP lub użyj Resend',
+        '2. Dodaj SMTP_USER i SMTP_PASS w Railway',
+        '3. Lub zmień SMTP_PROVIDER=resend'
+      ]
     });
   }
 
@@ -325,8 +333,13 @@ app.post('/api/statement/email', async (req, res) => {
 
   // Wyślij e-mail
   try {
+    const smtpProvider = process.env.SMTP_PROVIDER || 'resend';
+    const fromEmail = smtpProvider === 'resend' 
+      ? process.env.RESEND_FROM_EMAIL || 'noreply@resend.dev'
+      : process.env.SMTP_USER || 'your-email@gmail.com';
+      
     const mailOptions = {
-      from: process.env.SMTP_USER || 'your-email@gmail.com',
+      from: fromEmail,
       to: emailAddresses.join(', '),
       subject: `Oświadczenie sprawcy kolizji - ${data.location}`,
       text: `Załączamy oświadczenie sprawcy kolizji drogowej z dnia ${data.datetime} w miejscu ${data.location}.`,
@@ -346,8 +359,8 @@ app.post('/api/statement/email', async (req, res) => {
     };
 
     console.log(`📧 Próba wysłania e-maila do: ${emailAddresses.join(', ')}`);
-    console.log(`📧 SMTP Host: ${process.env.SMTP_HOST || 'smtp.gmail.com'}`);
-    console.log(`📧 SMTP Port: ${process.env.SMTP_PORT || 587}`);
+    console.log(`📧 SMTP Provider: ${smtpProvider}`);
+    console.log(`📧 From Email: ${fromEmail}`);
     
     await emailTransporter.sendMail(mailOptions);
     console.log(`✅ E-mail wysłany do: ${emailAddresses.join(', ')}`);
