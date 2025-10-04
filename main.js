@@ -3080,10 +3080,10 @@ function transferDamagePhotosFromWizard(analysisResults) {
       dictateBtn.textContent = hasDictated ? 'Uaktualnij opis zdarzenia' : '🎤 Opisz zdarzenie';
       isListening = false;
       
-      // Pokaż ramkę z tekstem dyktowania
+      // Automatycznie wprowadź tekst do pola (tak jak dla przycisków uszkodzeń)
       if (accumulatedTranscript.trim()) {
-        dictationText.classList.remove('hidden');
-        dictationContent.textContent = accumulatedTranscript;
+        fields.incidentDetails.value = accumulatedTranscript.trim();
+        setAiStatus('Opis zdarzenia wprowadzony', 'success');
       }
     };
 
@@ -3099,6 +3099,11 @@ function transferDamagePhotosFromWizard(analysisResults) {
       }
       if (speechLiveText) {
         speechLiveText.textContent = (accumulatedTranscript + ' ' + interimText).trim();
+      }
+      
+      // Automatycznie wprowadź tekst na żywo do pola (tak jak dla przycisków uszkodzeń)
+      if (fields.incidentDetails) {
+        fields.incidentDetails.value = (accumulatedTranscript + ' ' + interimText).trim();
       }
     };
 
@@ -3176,46 +3181,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
   // Pobieranie lokalizacji GPS
   getLocationBtn.addEventListener('click', getCurrentLocation);
 
-  // Przyciski dyktowania
-  applyDictationBtn.addEventListener('click', async () => {
-    const transcript = dictationContent.textContent.trim();
-    if (!transcript) return;
-    
-    setAiStatus('Tekst wprowadzony - można edytować ręcznie', 'success');
-    
-    // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika  
-    /*
-    try {
-      const response = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript })
-      });
-      const data = await response.json();
-      if (data.ok && data.fields) {
-        const eventFields = ['incidentDetails', 'damageDescriptionVictim', 'damageDescriptionPerpetrator', 'additionalInfo'];
-        eventFields.forEach(field => {
-          if (data.fields[field] && fields[field]) {
-            fields[field].value = data.fields[field];
-          }
-        });
-        updatePreview();
-        setAiStatus('✅ Pola zdarzenia zostały uzupełnione na podstawie opisu', 'success');
-        hasDictated = true;
-        dictateBtn.textContent = 'Uaktualnij opis zdarzenia';
-      }
-    } catch (error) {
-      console.error('AI analysis error:', error);
-      setAiStatus('❌ Błąd analizy opisu zdarzenia', 'warn');
-    }
-    */
-  });
-
-  clearDictationBtn.addEventListener('click', () => {
-    dictationText.classList.add('hidden');
-    dictationContent.textContent = '';
-    accumulatedTranscript = '';
-  });
+  // ApplyDictationBtn i clearDictationBtn zostały usunięte - tekst wprowadzany automatycznie
 
   // Dyktowanie uszkodzeń poszkodowanego
   const dictateDamageVictimBtn = $('dictateDamageVictimBtn');
