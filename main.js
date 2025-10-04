@@ -3270,10 +3270,8 @@ function transferDamagePhotosFromWizard(analysisResults) {
           }
         }
         
-        // Pokaź tekst na żywo w content
-        const liveText = (accumulatedTranscript + ' ' + interimText).trim();
-        dictationDamageVictimContent.textContent = liveText;
-        dictationDamageVictimText.classList.remove('hidden');
+        // Automatycznie wprowadź tekst do pola (nie pokazuj modala)
+        fields.damageDescriptionVictim.value = (accumulatedTranscript + ' ' + interimText).trim();
       };
 
       damageVictimRecognition.onerror = (event) => {
@@ -3296,9 +3294,9 @@ function transferDamagePhotosFromWizard(analysisResults) {
         // Ukryj czerwony banner
         if (speechBanner) speechBanner.classList.add('hidden');
         
-        // Ustaw finalny tekst
+        // Automatycznie wprowadź finalny tekst do pola
         if (accumulatedTranscript.trim()) {
-          dictationDamageVictimContent.textContent = accumulatedTranscript.trim();
+          fields.damageDescriptionVictim.value = accumulatedTranscript.trim();
         }
       };
 
@@ -3306,48 +3304,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
     });
   }
 
-  if (applyDictationDamageVictimBtn) {
-    applyDictationDamageVictimBtn.addEventListener('click', async () => {
-      const transcript = dictationDamageVictimContent.textContent.trim();
-      if (!transcript) return;
-      
-      if (fields.damageDescriptionVictim) {
-        fields.damageDescriptionVictim.value = transcript;
-      }
-      
-      // Ukryj banner po zastosowaniu
-      if (speechBanner) speechBanner.classList.add('hidden');
-      dictationDamageVictimText.classList.add('hidden');
-      
-      setAiStatus('Tekst wprowadzony - można edytować ręcznie', 'success');
-      
-      // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika
-      /*
-      setAiStatus('Analiza opisu uszkodzeń...', '');
-      try {
-        const response = await fetch('/api/ai/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript })
-        });
-        const data = await response.json();
-        if (data.ok && data.fields) {
-          if (data.fields.damageDescriptionVictim && fields.damageDescriptionVictim) {
-            fields.damageDescriptionVictim.value = data.fields.damageDescriptionVictim;
-          }
-          if (data.fields.damageValueVictim && fields.damageValueVictim) {
-            fields.damageValueVictim.value = data.fields.damageValueVictim;
-          }
-          updatePreview();
-          setAiStatus('Opis uszkodzeń przeanalizowany', 'success');
-        }
-      } catch (error) {
-        console.error('AI analysis error:', error);
-        setAiStatus('Błąd analizy AI', 'error');
-      }
-      */
-    });
-  }
+  // ApplyDictationDamageVictimBtn został usunięty - tekst wprowadzany automatycznie
 
   if (clearDictationDamageVictimBtn) {
     clearDictationDamageVictimBtn.addEventListener('click', () => {
@@ -3409,10 +3366,8 @@ function transferDamagePhotosFromWizard(analysisResults) {
           }
         }
         
-        // Pokaź tekst na żywo w content
-        const liveText = (accumulatedTranscript + ' ' + interimText).trim();
-        dictationDamagePerpetratorContent.textContent = liveText;
-        dictationDamagePerpetratorText.classList.remove('hidden');
+        // Automatycznie wprowadź tekst do pola (nie pokazuj modala)
+        fields.damageDescriptionPerpetrator.value = (accumulatedTranscript + ' ' + interimText).trim();
       };
 
       damagePerpetratorRecognition.onerror = (event) => {
@@ -3435,9 +3390,9 @@ function transferDamagePhotosFromWizard(analysisResults) {
         // Ukryj czerwony banner
         if (speechBanner) speechBanner.classList.add('hidden');
         
-        // Ustaw finalny tekst
+        // Automatycznie wprowadź finalny tekst do pola
         if (accumulatedTranscript.trim()) {
-          dictationDamagePerpetratorContent.textContent = accumulatedTranscript.trim();
+          fields.damageDescriptionPerpetrator.value = accumulatedTranscript.trim();
         }
       };
 
@@ -3445,48 +3400,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
     });
   }
 
-  if (applyDictationDamagePerpetratorBtn) {
-    applyDictationDamagePerpetratorBtn.addEventListener('click', async () => {
-      const transcript = dictationDamagePerpetratorContent.textContent.trim();
-      if (!transcript) return;
-      
-      if (fields.damageDescriptionPerpetrator) {
-        fields.damageDescriptionPerpetrator.value = transcript;
-      }
-      
-      // Ukryj banner po zastosowaniu
-      if (speechBanner) speechBanner.classList.add('hidden');
-      dictationDamagePerpetratorText.classList.add('hidden');
-      
-      setAiStatus('Tekst wprowadzony - można edytować ręcznie', 'success');
-      
-      // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika
-      /*
-      setAiStatus('Analiza opisu uszkodzeń...', '');
-      try {
-        const response = await fetch('/api/ai/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript })
-        });
-        const data = await response.json();
-        if (data.ok && data.fields) {
-          if (data.fields.damageDescriptionPerpetrator && fields.damageDescriptionPerpetrator) {
-            fields.damageDescriptionPerpetrator.value = data.fields.damageDescriptionPerpetrator;
-          }
-          if (data.fields.damageValuePerpetrator && fields.damageValuePerpetrator) {
-            fields.damageValuePerpetrator.value = data.fields.damageValuePerpetrator;
-          }
-          updatePreview();
-          setAiStatus('Opis uszkodzeń przeanalizowany', 'success');
-        }
-      } catch (error) {
-        console.error('AI analysis error:', error);
-        setAiStatus('Błąd analizy AI', 'error');
-      }
-      */
-    });
-  }
+  // ApplyDictationDamagePerpetratorBtn został usunięty - tekst wprowadzany automatycznie
 
   if (clearDictationDamagePerpetratorBtn) {
     clearDictationDamagePerpetratorBtn.addEventListener('click', () => {
