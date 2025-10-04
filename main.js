@@ -3121,9 +3121,10 @@ function transferDamagePhotosFromWizard(analysisResults) {
         });
         const data = await resp.json();
         if (data.ok && data.fields) {
-          applyAiFields(data.fields, hasDictated /* allowOverwrite */);
+          // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika
+          /*
+          applyAiFields(data.fields, hasDictated);
           updatePreview();
-          // Auto-zapis jeżeli wszystkie wymagane pola są wypełnione
           const requiredOk = validateRequiredSilent();
           if (requiredOk) {
             await saveStatementSilent();
@@ -3133,6 +3134,9 @@ function transferDamagePhotosFromWizard(analysisResults) {
           }
           hasDictated = true;
           dictateBtn.textContent = 'Uaktualnij oświadczenie';
+          */
+          
+          setAiStatus('Dyktowanie zakończone - można edytować ręcznie', 'success');
         }
       } catch (e) {
         console.error('AI analyze error', e);
@@ -3177,7 +3181,10 @@ function transferDamagePhotosFromWizard(analysisResults) {
     const transcript = dictationContent.textContent.trim();
     if (!transcript) return;
     
-    setAiStatus('Analiza opisu zdarzenia...', '');
+    setAiStatus('Tekst wprowadzony - można edytować ręcznie', 'success');
+    
+    // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika  
+    /*
     try {
       const response = await fetch('/api/ai/analyze', {
         method: 'POST',
@@ -3186,7 +3193,6 @@ function transferDamagePhotosFromWizard(analysisResults) {
       });
       const data = await response.json();
       if (data.ok && data.fields) {
-        // Uzupełnij tylko pola związane ze zdarzeniem
         const eventFields = ['incidentDetails', 'damageDescriptionVictim', 'damageDescriptionPerpetrator', 'additionalInfo'];
         eventFields.forEach(field => {
           if (data.fields[field] && fields[field]) {
@@ -3202,6 +3208,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
       console.error('AI analysis error:', error);
       setAiStatus('❌ Błąd analizy opisu zdarzenia', 'warn');
     }
+    */
   });
 
   clearDictationBtn.addEventListener('click', () => {
@@ -3312,7 +3319,10 @@ function transferDamagePhotosFromWizard(analysisResults) {
       if (speechBanner) speechBanner.classList.add('hidden');
       dictationDamageVictimText.classList.add('hidden');
       
-      // Analiza AI dla opisu uszkodzeń poszkodowanego
+      setAiStatus('Tekst wprowadzony - można edytować ręcznie', 'success');
+      
+      // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika
+      /*
       setAiStatus('Analiza opisu uszkodzeń...', '');
       try {
         const response = await fetch('/api/ai/analyze', {
@@ -3322,7 +3332,6 @@ function transferDamagePhotosFromWizard(analysisResults) {
         });
         const data = await response.json();
         if (data.ok && data.fields) {
-          // Uzupełnij związane pola (szczególnie damageDescriptionVictim i damageValueVictim)
           if (data.fields.damageDescriptionVictim && fields.damageDescriptionVictim) {
             fields.damageDescriptionVictim.value = data.fields.damageDescriptionVictim;
           }
@@ -3336,6 +3345,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
         console.error('AI analysis error:', error);
         setAiStatus('Błąd analizy AI', 'error');
       }
+      */
     });
   }
 
@@ -3448,7 +3458,10 @@ function transferDamagePhotosFromWizard(analysisResults) {
       if (speechBanner) speechBanner.classList.add('hidden');
       dictationDamagePerpetratorText.classList.add('hidden');
       
-      // Analiza AI dla opisu uszkodzenia sprawcy
+      setAiStatus('Tekst wprowadzony - można edytować ręcznie', 'success');
+      
+      // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika
+      /*
       setAiStatus('Analiza opisu uszkodzeń...', '');
       try {
         const response = await fetch('/api/ai/analyze', {
@@ -3458,7 +3471,6 @@ function transferDamagePhotosFromWizard(analysisResults) {
         });
         const data = await response.json();
         if (data.ok && data.fields) {
-          // Uzupełnij związane pola (szczególnie damageDescriptionPerpetrator i damageValuePerpetrator)
           if (data.fields.damageDescriptionPerpetrator && fields.damageDescriptionPerpetrator) {
             fields.damageDescriptionPerpetrator.value = data.fields.damageDescriptionPerpetrator;
           }
@@ -3472,6 +3484,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
         console.error('AI analysis error:', error);
         setAiStatus('Błąd analizy AI', 'error');
       }
+      */
     });
   }
 
@@ -3564,7 +3577,11 @@ function transferDamagePhotosFromWizard(analysisResults) {
       alert('Wpisz lub wklej treść oświadczenia.');
       return;
     }
-    setAiStatus('Przetwarzam wprowadzone oświadczenie...', '');
+    setAiStatus('Tekst wprowadzony - można edytować ręcznie', 'success');
+    manualModal.classList.add('hidden');
+    
+    // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika
+    /*
     try {
       const resp = await fetch('/api/ai/analyze', {
         method: 'POST',
@@ -3590,6 +3607,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
       console.error('AI analyze error', e);
       setAiStatus('Błąd przetwarzania AI. Spróbuj ponownie.', 'warn');
     }
+    */
   });
 
   // Nagrywanie audio – mobile modal
@@ -3642,6 +3660,12 @@ function transferDamagePhotosFromWizard(analysisResults) {
         throw new Error(trJson?.error || 'Błąd transkrypcji');
       }
       const transcript = trJson.transcript || '';
+      setAiStatus('Transkrypcja zakończona - można edytować ręcznie', 'success');
+      recordModal.classList.add('hidden');
+      resetRecordingUI();
+      
+      // AI ANALIZA WYŁĄCZONA - wykomentowane na żądanie użytkownika
+      /*
       setAiStatus('Analiza AI...', '');
       const resp = await fetch('/api/ai/analyze', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript })
@@ -3662,6 +3686,7 @@ function transferDamagePhotosFromWizard(analysisResults) {
         hasDictated = true;
         dictateBtn.textContent = 'Uaktualnij oświadczenie';
       }
+      */
     } catch (e) {
       console.error('Transcribe/analyze error', e);
       setAiStatus('Błąd transkrypcji/analizy. Sprawdź konfigurację backendu Whisper.', 'warn');
